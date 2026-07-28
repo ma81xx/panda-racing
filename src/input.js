@@ -7,6 +7,7 @@ const ACTIONS = {
 };
 
 const CONTROL_CODES = new Set(Object.values(ACTIONS).flat());
+const hasAction = (action) => Object.prototype.hasOwnProperty.call(ACTIONS, action);
 
 export function createInput() {
   const pressedKeys = new Set();
@@ -25,11 +26,12 @@ export function createInput() {
   window.addEventListener('blur', () => {
     pressedKeys.clear();
     pressedControls.clear();
+    document.querySelectorAll('.touch-button.is-pressed').forEach((button) => button.classList.remove('is-pressed'));
   });
 
   document.querySelectorAll('[data-control]').forEach((button) => {
     const action = button.dataset.control;
-    if (!Object.hasOwn(ACTIONS, action)) return;
+    if (!hasAction(action)) return;
 
     const press = (event) => {
       event.preventDefault();
@@ -42,13 +44,24 @@ export function createInput() {
       button.classList.remove('is-pressed');
     };
 
-    button.addEventListener('pointerdown', (event) => {
-      press(event);
-      button.setPointerCapture(event.pointerId);
-    });
-    button.addEventListener('pointerup', release);
-    button.addEventListener('pointercancel', release);
-    button.addEventListener('lostpointercapture', release);
+    if (window.PointerEvent) {
+      button.addEventListener('pointerdown', (event) => {
+        press(event);
+        button.setPointerCapture(event.pointerId);
+      });
+      button.addEventListener('pointerup', release);
+      button.addEventListener('pointercancel', release);
+      button.addEventListener('lostpointercapture', release);
+    } else {
+      button.addEventListener('touchstart', press, { passive: false });
+      button.addEventListener('touchend', release, { passive: false });
+      button.addEventListener('touchcancel', release, { passive: false });
+      button.addEventListener('mousedown', press);
+      button.addEventListener('mouseup', release);
+      button.addEventListener('mouseleave', release);
+    }
+
+    button.addEventListener('contextmenu', (event) => event.preventDefault());
   });
 
   return {
