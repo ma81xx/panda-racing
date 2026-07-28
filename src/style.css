@@ -21,3 +21,99 @@ body,
   border-radius: 0.75rem;
   white-space: pre-wrap;
 }
+
+.touch-controls {
+  position: fixed;
+  inset: auto 1rem 1rem 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 1rem;
+  pointer-events: none;
+  user-select: none;
+  touch-action: none;
+  z-index: 10;
+}
+
+.touch-controls__cluster {
+  display: grid;
+  gap: 0.65rem;
+  pointer-events: auto;
+}
+
+.touch-controls__cluster--steer {
+  grid-template-columns: repeat(2, 4.25rem);
+}
+
+.touch-controls__cluster--drive {
+  grid-template-columns: repeat(2, 4.25rem);
+  grid-template-areas:
+    "throttle throttle"
+    "reverse brake";
+}
+
+.touch-controls__cluster--drive [data-control='throttle'] {
+  grid-area: throttle;
+  justify-self: center;
+}
+
+.touch-controls__cluster--drive [data-control='reverse'] {
+  grid-area: reverse;
+}
+
+.touch-controls__cluster--drive [data-control='handbrake'] {
+  grid-area: brake;
+}
+
+.touch-button {
+  width: 4.25rem;
+  height: 4.25rem;
+  border: 0.18rem solid rgba(255, 255, 255, 0.85);
+  border-radius: 1.2rem;
+  color: #fff;
+  background: rgba(17, 31, 44, 0.62);
+  box-shadow: 0 0.5rem 1.1rem rgba(0, 0, 0, 0.24);
+  font: 800 1.8rem/1 system-ui, sans-serif;
+  backdrop-filter: blur(8px);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: none;
+}
+
+.touch-button--wide {
+  font-size: 1rem;
+}
+
+.touch-button:active,
+.touch-button.is-pressed {
+  background: rgba(232, 55, 55, 0.8);
+  transform: translateY(0.08rem) scale(0.97);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .touch-controls {
+    opacity: 0.72;
+  }
+}
+
+@media (max-width: 640px) {
+  .touch-controls {
+    inset-inline: 0.6rem;
+    bottom: max(0.6rem, env(safe-area-inset-bottom));
+  }
+
+  .touch-controls__cluster--steer,
+  .touch-controls__cluster--drive {
+    grid-template-columns: repeat(2, 3.7rem);
+  }
+
+  .touch-button {
+    width: 3.7rem;
+    height: 3.7rem;
+    border-radius: 1rem;
+    font-size: 1.55rem;
+  }
+
+  .touch-button--wide {
+    font-size: 0.88rem;
+  }
+}
