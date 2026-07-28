@@ -7,6 +7,17 @@
   </head>
   <body>
     <canvas id="app"></canvas>
+    <div class="touch-controls" aria-label="Comandi macchina">
+      <div class="touch-controls__cluster touch-controls__cluster--steer">
+        <button class="touch-button" type="button" data-control="steerLeft" aria-label="Sterza a sinistra">←</button>
+        <button class="touch-button" type="button" data-control="steerRight" aria-label="Sterza a destra">→</button>
+      </div>
+      <div class="touch-controls__cluster touch-controls__cluster--drive">
+        <button class="touch-button" type="button" data-control="throttle" aria-label="Accelera">↑</button>
+        <button class="touch-button" type="button" data-control="reverse" aria-label="Retromarcia o freno">↓</button>
+        <button class="touch-button touch-button--wide" type="button" data-control="handbrake" aria-label="Freno a mano">Freno</button>
+      </div>
+    </div>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
