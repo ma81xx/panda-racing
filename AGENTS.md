@@ -50,7 +50,7 @@ Each module exports a `createX()` factory function.
 Realistic driving simulator featuring a **Fiat Panda**. The vehicle tuning (`vehicle.js`) aims for plausible real-world behavior:
 - **Tire grip** via `frictionSlip`, `frontGrip`, `rearGrip` — front-biased to match FWD layout.
 - **Suspension** modeled with rest length, stiffness, travel, and separate compression/relaxation damping.
-- **Forces**: engine force is split 25% front / 100% rear, brake force on all four wheels, handbrake on rear only.
+- **Forces**: engine force is split 100% front / 25% rear (FWD), brake force on all four wheels, handbrake on rear only.
 
 ## Key gotchas
 

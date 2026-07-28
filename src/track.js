@@ -80,8 +80,8 @@ export function createTrack(scene, physics, materials, seed = 1337) {
     scene.add(cone);
   }
 
-  const vertices = Array.from(roadGeometry.attributes.position.array);
-  const indices = Array.from(roadGeometry.index.array);
+  const vertices = new Float32Array(roadGeometry.attributes.position.array);
+  const indices = new Uint32Array(roadGeometry.index.array);
   const body = physics.world.createRigidBody(physics.RAPIER.RigidBodyDesc.fixed());
   physics.world.createCollider(physics.RAPIER.ColliderDesc.trimesh(vertices, indices), body);
 

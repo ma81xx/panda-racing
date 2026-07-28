@@ -29,7 +29,7 @@ export function createVehicle(scene, physics, materials, start, tangent) {
   scene.add(group);
 
   const bodyDesc = physics.RAPIER.RigidBodyDesc.dynamic()
-    .setTranslation(start.x, start.y + 3, start.z)
+    .setTranslation(start.x, start.y + 1, start.z)
     .setCanSleep(false);
   const yaw = Math.atan2(tangent.x, tangent.z);
   bodyDesc.setRotation({ x: 0, y: Math.sin(yaw / 2), z: 0, w: Math.cos(yaw / 2) });
@@ -37,6 +37,8 @@ export function createVehicle(scene, physics, materials, start, tangent) {
   physics.world.createCollider(physics.RAPIER.ColliderDesc.cuboid(1.1, 0.55, 1.75).setDensity(420), body);
 
   const controller = physics.world.createVehicleController(body);
+  controller.indexUpAxis = 1;
+  controller.setIndexForwardAxis = 2;
   const tuning = {
     suspensionRestLength: 0.48,
     suspensionStiffness: 28,
@@ -77,7 +79,7 @@ export function createVehicle(scene, physics, materials, start, tangent) {
     const steer = input.steer * tuning.maxSteer;
     const brake = input.braking && !input.throttle ? tuning.brakeForce : 0;
     for (let i = 0; i < 4; i++) {
-      controller.setWheelEngineForce(i, i >= 2 ? engine : engine * 0.25);
+      controller.setWheelEngineForce(i, i < 2 ? engine : engine * 0.25);
       controller.setWheelBrake(i, input.handbrake && i >= 2 ? tuning.handbrakeForce : brake);
       controller.setWheelSteering(i, i < 2 ? steer : 0);
     }

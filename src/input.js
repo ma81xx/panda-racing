@@ -29,7 +29,7 @@ export function createInput() {
 
   document.querySelectorAll('[data-control]').forEach((button) => {
     const action = button.dataset.control;
-    if (!Object.hasOwn(ACTIONS, action)) return;
+    if (!(action in ACTIONS)) return;
 
     const press = (event) => {
       event.preventDefault();
