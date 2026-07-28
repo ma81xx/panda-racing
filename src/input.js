@@ -8,11 +8,27 @@ const ACTIONS = {
 
 const CONTROL_CODES = new Set(Object.values(ACTIONS).flat());
 const hasAction = (action) => Object.prototype.hasOwnProperty.call(ACTIONS, action);
+const getControlButton = (target) => target?.closest?.('[data-control]');
 
 export function createInput() {
   const pressedKeys = new Set();
   const pressedControls = new Set();
+  const activePointers = new Map();
   const isPressed = (action) => pressedControls.has(action) || ACTIONS[action].some((code) => pressedKeys.has(code));
+  const buttons = Array.from(document.querySelectorAll('[data-control]')).filter((button) => hasAction(button.dataset.control));
+
+  function updateButtonState(action) {
+    buttons
+      .filter((button) => button.dataset.control === action)
+      .forEach((button) => button.classList.toggle('is-pressed', pressedControls.has(action)));
+  }
+
+  function setControl(action, pressed) {
+    if (!hasAction(action)) return;
+    if (pressed) pressedControls.add(action);
+    else pressedControls.delete(action);
+    updateButtonState(action);
+  }
 
   function setKey(event, pressed) {
     if (!CONTROL_CODES.has(event.code)) return;
@@ -21,48 +37,70 @@ export function createInput() {
     else pressedKeys.delete(event.code);
   }
 
-  window.addEventListener('keydown', (event) => setKey(event, true));
-  window.addEventListener('keyup', (event) => setKey(event, false));
-  window.addEventListener('blur', () => {
+  function clearControls() {
     pressedKeys.clear();
     pressedControls.clear();
-    document.querySelectorAll('.touch-button.is-pressed').forEach((button) => button.classList.remove('is-pressed'));
+    activePointers.clear();
+    buttons.forEach((button) => button.classList.remove('is-pressed'));
+  }
+
+  window.addEventListener('keydown', (event) => setKey(event, true));
+  window.addEventListener('keyup', (event) => setKey(event, false));
+  window.addEventListener('blur', clearControls);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) clearControls();
   });
 
-  document.querySelectorAll('[data-control]').forEach((button) => {
-    const action = button.dataset.control;
-    if (!hasAction(action)) return;
-
-    const press = (event) => {
-      event.preventDefault();
-      pressedControls.add(action);
-      button.classList.add('is-pressed');
-    };
-    const release = (event) => {
-      event.preventDefault();
-      pressedControls.delete(action);
-      button.classList.remove('is-pressed');
-    };
-
-    if (window.PointerEvent) {
+  if (window.PointerEvent) {
+    buttons.forEach((button) => {
       button.addEventListener('pointerdown', (event) => {
-        press(event);
-        button.setPointerCapture(event.pointerId);
+        event.preventDefault();
+        activePointers.set(event.pointerId, button.dataset.control);
+        setControl(button.dataset.control, true);
+        if (button.setPointerCapture) button.setPointerCapture(event.pointerId);
       });
-      button.addEventListener('pointerup', release);
-      button.addEventListener('pointercancel', release);
-      button.addEventListener('lostpointercapture', release);
-    } else {
-      button.addEventListener('touchstart', press, { passive: false });
-      button.addEventListener('touchend', release, { passive: false });
-      button.addEventListener('touchcancel', release, { passive: false });
-      button.addEventListener('mousedown', press);
-      button.addEventListener('mouseup', release);
-      button.addEventListener('mouseleave', release);
-    }
+    });
 
-    button.addEventListener('contextmenu', (event) => event.preventDefault());
-  });
+    const releasePointer = (event) => {
+      const action = activePointers.get(event.pointerId);
+      if (!action) return;
+      event.preventDefault();
+      activePointers.delete(event.pointerId);
+      if (![...activePointers.values()].includes(action)) setControl(action, false);
+    };
+
+    window.addEventListener('pointerup', releasePointer);
+    window.addEventListener('pointercancel', releasePointer);
+  } else {
+    const syncTouches = (event) => {
+      event.preventDefault();
+      const touchedActions = new Set();
+
+      for (const touch of event.touches) {
+        const target = document.elementFromPoint(touch.clientX, touch.clientY);
+        const button = getControlButton(target);
+        const action = button?.dataset.control;
+        if (hasAction(action)) touchedActions.add(action);
+      }
+
+      Object.keys(ACTIONS).forEach((action) => setControl(action, touchedActions.has(action)));
+    };
+
+    window.addEventListener('touchstart', syncTouches, { passive: false });
+    window.addEventListener('touchmove', syncTouches, { passive: false });
+    window.addEventListener('touchend', syncTouches, { passive: false });
+    window.addEventListener('touchcancel', syncTouches, { passive: false });
+
+    buttons.forEach((button) => {
+      button.addEventListener('mousedown', (event) => {
+        event.preventDefault();
+        setControl(button.dataset.control, true);
+      });
+    });
+    window.addEventListener('mouseup', () => Object.keys(ACTIONS).forEach((action) => setControl(action, false)));
+  }
+
+  buttons.forEach((button) => button.addEventListener('contextmenu', (event) => event.preventDefault()));
 
   return {
     get throttle() { return isPressed('throttle') ? 1 : 0; },
