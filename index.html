@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Panda Racing</title>
+  </head>
+  <body>
+    <canvas id="app"></canvas>
+    <div class="touch-controls" aria-label="Mobile driving controls">
+      <div class="touch-controls__cluster touch-controls__cluster--steer">
+        <button class="touch-button" type="button" data-control="left" aria-label="Steer left">◀</button>
+        <button class="touch-button" type="button" data-control="right" aria-label="Steer right">▶</button>
+      </div>
+      <div class="touch-controls__cluster touch-controls__cluster--drive">
+        <button class="touch-button touch-button--wide" type="button" data-control="throttle" aria-label="Accelerate">▲</button>
+        <button class="touch-button touch-button--wide" type="button" data-control="reverse" aria-label="Brake or reverse">▼</button>
+        <button class="touch-button touch-button--brake" type="button" data-control="handbrake" aria-label="Handbrake">⏺</button>
+      </div>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
