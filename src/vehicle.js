@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-function createWheelMesh(materials) {
+function createWheelMesh() {
   const group = new THREE.Group();
 
   const tire = new THREE.Mesh(
@@ -54,7 +54,7 @@ export function createVehicle(scene, materials, start, tangent) {
   ];
   wheelPositions.forEach(([x, y, z]) => {
     const wg = new THREE.Group();
-    const mesh = createWheelMesh(materials);
+    const mesh = createWheelMesh();
     wg.add(mesh);
     wg.position.set(x, y, z);
     group.add(wg);
@@ -64,29 +64,28 @@ export function createVehicle(scene, materials, start, tangent) {
 
   const tuning = {
     mass: 1200,
-    enginePower: 12000,
-    brakeForce: 20000,
+    enginePower: 8000,
+    brakeForce: 18000,
     maxSteer: 0.55,
     wheelRadius: 0.42,
-    springRest: 0.48,
-    springStiffness: 38000,
-    springDamping: 3200,
-    tireGrip: 1.6,
-    groundOffset: 0.72,
-    airResistance: 0.02
+    springRest: 0.52,
+    springStiffness: 32000,
+    springDamping: 2800,
+    tireGrip: 1.2,
+    groundOffset: 0.30,
+    airResistance: 0.015
   };
 
   const yaw = Math.atan2(tangent.x, tangent.z);
-  group.position.set(start.x, start.y + 1.5, start.z);
+  group.position.set(start.x, start.y + tuning.springRest + tuning.wheelRadius * 0.8, start.z);
   group.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
 
   const velocity = new THREE.Vector3();
   const angularVelocity = new THREE.Vector3();
   let steerAngle = 0;
-  let wasInAir = false;
+  let wheelSpin = 0;
 
   const springLength = [tuning.springRest, tuning.springRest, tuning.springRest, tuning.springRest];
-  const springVel = [0, 0, 0, 0];
 
   function worldPos(bodyLocal) {
     return bodyLocal.clone().applyQuaternion(group.quaternion).add(group.position);
@@ -112,175 +111,152 @@ export function createVehicle(scene, materials, start, tangent) {
     totalForce.y -= tuning.mass * 9.81;
 
     const speedFwd = forward.dot(velocity);
-    const speedAbs = Math.abs(speedFwd);
+
+    let anyWheelGrounded = false;
 
     for (let i = 0; i < 4; i++) {
       const [lx, ly, lz] = wheelPositions[i];
-      const localPos = new THREE.Vector3(lx, ly, lz);
-      const wsPos = worldPos(localPos);
+      const localMount = new THREE.Vector3(lx, ly, lz);
       const isFront = i < 2;
 
-      let steerOffset = 0;
+      let wsMount = worldPos(localMount);
+
       if (isFront) {
-        const s = i === 0 ? steerAngle : steerAngle;
-        const cosS = Math.cos(s);
-        const sinS = Math.sin(s);
+        const cosS = Math.cos(steerAngle);
+        const sinS = Math.sin(steerAngle);
         const sx = lx * cosS - lz * sinS;
         const sz = lx * sinS + lz * cosS;
-        const steeredLocal = new THREE.Vector3(sx, ly, sz);
-        const steeredWs = bodyLocalToWorld(steeredLocal);
-        steerOffset = steeredWs.clone().sub(wsPos).length();
-        wsPos.copy(steeredWs);
+        wsMount = worldPos(new THREE.Vector3(sx, ly, sz));
       }
 
       if (getGroundHeight) {
-        const rayY = wsPos.y + 0.5;
-        const groundH = getGroundHeight(wsPos.x, wsPos.z);
+        const groundH = getGroundHeight(wsMount.x, wsMount.z);
         if (groundH !== null) {
-          const targetLen = rayY - groundH;
-          const clampedLen = THREE.MathUtils.clamp(targetLen, 0.05, tuning.springRest + 0.35);
-          springVel[i] += (clampedLen - springLength[i]) * dt * 30;
-          springLength[i] += springVel[i] * dt;
-          springLength[i] = THREE.MathUtils.clamp(springLength[i], 0.05, tuning.springRest + 0.35);
+          const dist = wsMount.y - groundH;
+          springLength[i] = Math.max(dist, 0.05);
 
-          const compression = tuning.springRest - springLength[i];
-          if (compression > 0) {
-            const springForce = tuning.springStiffness * compression - tuning.springDamping * springVel[i];
-            if (springForce > 0) {
+          if (dist < tuning.springRest + 0.3) {
+            const compression = tuning.springRest - springLength[i];
+            if (compression > 0) {
+              anyWheelGrounded = true;
+              const springForce = tuning.springStiffness * compression;
               totalForce.y += springForce;
 
-              const contactWorld = new THREE.Vector3(wsPos.x, groundH, wsPos.z);
-              const r = contactWorld.clone().sub(group.position);
-              const torque = new THREE.Vector3().crossVectors(r, new THREE.Vector3(0, springForce, 0));
-              totalTorque.add(torque);
+              const contactPt = new THREE.Vector3(wsMount.x, groundH, wsMount.z);
+              const r = contactPt.clone().sub(group.position);
+              totalTorque.add(new THREE.Vector3().crossVectors(r, new THREE.Vector3(0, springForce, 0)));
+
+              const dampForce = -tuning.springDamping * velocity.y;
+              totalForce.y += dampForce;
             }
           }
         }
       }
 
-      if (springLength[i] < tuning.springRest - 0.02 && Math.abs(speedFwd) > 0.1) {
-        let wheelForward = forward.clone();
-        if (isFront) {
-          const steerQuat = new THREE.Quaternion().setFromAxisAngle(up, steerAngle);
-          wheelForward = forward.clone().applyQuaternion(steerQuat);
+      if (springLength[i] < tuning.springRest + 0.1 && Math.abs(speedFwd) > 0.2) {
+        if (i >= 2) {
+          if (input.throttle) {
+            const engineForce = forward.clone().multiplyScalar(tuning.enginePower);
+            totalForce.add(engineForce);
+            totalTorque.add(new THREE.Vector3().crossVectors(wsMount.clone().sub(group.position), engineForce));
+          }
         }
 
-        if (i >= 2 && input.throttle) {
-          const engineF = wheelForward.clone().multiplyScalar(tuning.enginePower * dt);
-          totalForce.add(engineF);
-          const r = wsPos.clone().sub(group.position);
-          totalTorque.add(new THREE.Vector3().crossVectors(r, engineF));
-        }
-
-        if (input.reverse && speedFwd > 0.1) {
-          const brakeF = forward.clone().multiplyScalar(-tuning.brakeForce * dt);
-          totalForce.add(brakeF);
-          const r = wsPos.clone().sub(group.position);
-          totalTorque.add(new THREE.Vector3().crossVectors(r, brakeF));
-        }
-
-        if (input.reverse && speedFwd <= 0.1) {
-          const revF = forward.clone().multiplyScalar(-tuning.enginePower * 0.35 * dt);
-          totalForce.add(revF);
-          const r = wsPos.clone().sub(group.position);
-          totalTorque.add(new THREE.Vector3().crossVectors(r, revF));
+        if (input.reverse) {
+          if (speedFwd > 0.1) {
+            const brakeForce = forward.clone().multiplyScalar(-tuning.brakeForce);
+            totalForce.add(brakeForce);
+          } else {
+            const revForce = forward.clone().multiplyScalar(-tuning.enginePower * 0.35);
+            totalForce.add(revForce);
+          }
         }
 
         const lateralVel = right.dot(velocity);
-        const frictionF = right.clone().multiplyScalar(-lateralVel * tuning.tireGrip * tuning.mass * dt);
-        totalForce.add(frictionF);
-        const rFric = wsPos.clone().sub(group.position);
-        totalTorque.add(new THREE.Vector3().crossVectors(rFric, frictionF));
+        const frictionForce = right.clone().multiplyScalar(-lateralVel * tuning.tireGrip * tuning.mass);
+        totalForce.add(frictionForce);
+        totalTorque.add(new THREE.Vector3().crossVectors(wsMount.clone().sub(group.position), frictionForce));
       }
     }
 
     if (!input.throttle && !input.reverse) {
-      const drag = 1 - tuning.airResistance;
-      velocity.multiplyScalar(Math.pow(drag, dt * 60));
-      angularVelocity.multiplyScalar(Math.pow(drag, dt * 60));
+      velocity.multiplyScalar(Math.max(0, 1 - tuning.airResistance * dt * 60));
+      angularVelocity.multiplyScalar(Math.max(0, 1 - tuning.airResistance * dt * 60));
     }
 
     velocity.add(totalForce.clone().divideScalar(tuning.mass).multiplyScalar(dt));
     group.position.add(velocity.clone().multiplyScalar(dt));
 
-    const inertiaInv = new THREE.Vector3(1 / 800, 1 / 1500, 1 / 800);
+    const inertiaInv = new THREE.Vector3(1 / 700, 1 / 1400, 1 / 700);
     angularVelocity.add(totalTorque.multiply(inertiaInv).multiplyScalar(dt));
 
-    const angVelWorld = bodyLocalToWorld(angularVelocity);
-    if (angVelWorld.lengthSq() > 0.0001) {
+    if (angularVelocity.lengthSq() > 0.0001) {
+      const angVelWorld = angularVelocity.clone();
       const axis = angVelWorld.clone().normalize();
       const angle = angVelWorld.length() * dt;
       const qRot = new THREE.Quaternion().setFromAxisAngle(axis, angle);
       group.quaternion.premultiply(qRot).normalize();
     }
 
+    if (getGroundHeight && anyWheelGrounded) {
+      const groundCenter = getGroundHeight(group.position.x, group.position.z);
+      if (groundCenter !== null) {
+        const bodyTargetY = groundCenter + tuning.groundOffset + tuning.springRest - 0.08;
+        if (group.position.y < bodyTargetY - 0.3) {
+          group.position.y = bodyTargetY - 0.3;
+          if (velocity.y < 0) velocity.y = 0;
+        }
+      }
+    }
+
     if (getGroundHeight) {
       const groundH = getGroundHeight(group.position.x, group.position.z);
       if (groundH !== null) {
-        const targetY = groundH + tuning.groundOffset;
-        const inAir = group.position.y > targetY + 0.15;
-
-        if (!wasInAir && inAir && Math.abs(speedFwd) > 2) {
-          const hF = getGroundHeight(
-            group.position.x + forward.x * 2,
-            group.position.z + forward.z * 2
-          );
-          const hR = getGroundHeight(
-            group.position.x - forward.x * 2,
-            group.position.z - forward.z * 2
-          );
-          if (hF !== null && hR !== null) {
-            const pitchV = Math.atan2(hR - hF, 4) * speedFwd * 0.6;
-            angularVelocity.x += pitchV;
-          }
-        }
+        const bodyTargetY = groundH + tuning.groundOffset + tuning.springRest - 0.08;
+        const inAir = group.position.y > bodyTargetY + 0.2;
 
         if (inAir) {
-          if (group.position.y <= targetY) {
-            group.position.y = targetY;
-            if (velocity.y < -5) velocity.multiplyScalar(0.75);
-            velocity.y = 0;
+          if (group.position.y <= bodyTargetY) {
+            group.position.y = bodyTargetY;
+            if (velocity.y < -3) velocity.multiplyScalar(0.7);
+            velocity.y = Math.max(velocity.y, 0);
             angularVelocity.multiplyScalar(0.4);
           }
         } else {
-          if (velocity.y < 0) velocity.y *= 0.5;
-          const alpha = 1 - Math.exp(-dt * 25);
-          group.position.y += (targetY - group.position.y) * alpha;
+          if (velocity.y < 0) velocity.y *= 0.2;
+          const alpha = 1 - Math.exp(-dt * 20);
+          group.position.y += (bodyTargetY - group.position.y) * alpha;
         }
-        wasInAir = inAir;
       }
     }
 
     if (guardrailData && guardrailData.length > 0) {
-      const carRadius = 1.8;
       for (const rail of guardrailData) {
         const dx = group.position.x - rail.x;
         const dz = group.position.z - rail.z;
         const dist = Math.sqrt(dx * dx + dz * dz);
-        if (dist < carRadius) {
+        if (dist < 1.8) {
           const nx = dist > 0.001 ? dx / dist : rail.nx;
           const nz = dist > 0.001 ? dz / dist : rail.nz;
-          const overlap = carRadius - dist;
+          const overlap = 1.8 - dist;
           group.position.x += nx * overlap * 0.15;
           group.position.z += nz * overlap * 0.15;
           const dot = forward.x * nx + forward.z * nz;
-          if (dot > 0) {
-            velocity.multiplyScalar(0.7);
-          } else {
-            velocity.multiplyScalar(0.9);
-          }
+          velocity.multiplyScalar(dot > 0 ? 0.7 : 0.9);
           angularVelocity.multiplyScalar(0.5);
           break;
         }
       }
     }
 
+    wheelSpin += speedFwd * dt / tuning.wheelRadius;
+
     for (let i = 0; i < 4; i++) {
       const wg = wheelGroups[i];
       const [lx, ly, lz] = wheelPositions[i];
-      wg.position.set(lx, ly - (tuning.springRest - springLength[i]), lz);
-
-      wg.children[0].rotation.x += velocity.length() * dt / tuning.wheelRadius * (speedFwd >= 0 ? 1 : -1);
+      const visualCompression = Math.max(0, tuning.springRest - springLength[i]);
+      wg.position.set(lx, ly - visualCompression, lz);
+      wg.children[0].rotation.x = wheelSpin;
 
       if (i < 2) {
         wg.rotation.y = steerAngle;
@@ -293,14 +269,13 @@ export function createVehicle(scene, materials, start, tangent) {
 
   function addGui(gui) {
     const f = gui.addFolder('Panda tuning');
-    f.add(tuning, 'enginePower', 2000, 30000, 500).name('potenza motore');
+    f.add(tuning, 'enginePower', 2000, 30000, 500).name('potenza');
     f.add(tuning, 'brakeForce', 5000, 40000, 1000).name('freni');
     f.add(tuning, 'maxSteer', 0.1, 1.1, 0.01).name('sterzata');
     f.add(tuning, 'springStiffness', 10000, 80000, 1000).name('molle');
-    f.add(tuning, 'springDamping', 1000, 8000, 200).name('ammortizzatori');
-    f.add(tuning, 'tireGrip', 0.3, 3, 0.05).name('grip gomme');
-    f.add(tuning, 'airResistance', 0, 0.1, 0.005).name('resistenza aria');
-    f.add(tuning, 'groundOffset', 0.3, 1.2, 0.01).name('altezza suolo');
+    f.add(tuning, 'springDamping', 1000, 8000, 200).name('ammortizz');
+    f.add(tuning, 'tireGrip', 0.3, 3, 0.05).name('grip');
+    f.add(tuning, 'airResistance', 0, 0.1, 0.005).name('aria');
   }
 
   return { group, tuning, update, sync, addGui };
