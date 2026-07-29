@@ -63,7 +63,7 @@ function bootstrap() {
   function animate() {
     requestAnimationFrame(animate);
     const delta = Math.min(clock.getDelta(), 0.1);
-    vehicle.update(input, delta, getGroundHeight, track.guardrailData);
+    vehicle.update(input, delta, getGroundHeight, null);
     updateCamera(delta);
     renderer.render(scene, camera);
   }
