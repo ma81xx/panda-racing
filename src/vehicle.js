@@ -47,6 +47,7 @@ export function createVehicle(scene, materials, start, tangent) {
   let speed = 0;
   let verticalVelocity = 0;
   let groundY = group.position.y;
+  let pitchAngle = 0;
 
   function getForward() {
     return new THREE.Vector3(0, 0, 1).applyQuaternion(group.quaternion);
@@ -83,11 +84,20 @@ export function createVehicle(scene, materials, start, tangent) {
   function update(input, dt, getGroundHeight, guardrailData) {
     if (getGroundHeight) {
       const forward = getForward();
-      const sampleX = group.position.x + forward.x * 2;
-      const sampleZ = group.position.z + forward.z * 2;
-      const h = getGroundHeight(sampleX, sampleZ);
-      if (h !== null) groundY = h;
+      const sampleXF = group.position.x + forward.x * 2;
+      const sampleZF = group.position.z + forward.z * 2;
+      const hF = getGroundHeight(sampleXF, sampleZF);
+      const sampleXR = group.position.x - forward.x * 2;
+      const sampleZR = group.position.z - forward.z * 2;
+      const hR = getGroundHeight(sampleXR, sampleZR);
+      if (hF !== null) groundY = hF;
+      if (hF !== null && hR !== null) {
+        const slope = Math.atan2(hF - hR, 4);
+        pitchAngle += (slope - pitchAngle) * (1 - Math.exp(-dt * 15));
+      }
     }
+
+    group.rotation.x = pitchAngle;
 
     const throttle = input.throttle;
     const reverse = input.reverse;

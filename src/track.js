@@ -129,7 +129,7 @@ export function createTrack(scene, materials, seed = 1337) {
   });
 
   const curve = new THREE.CatmullRomCurve3(points, true, 'catmullrom', 0.35);
-  const roadGeometry = buildRoadGeometry(curve, 10, 520);
+  const roadGeometry = buildRoadGeometry(curve, 13, 520);
   const road = new THREE.Mesh(roadGeometry, materials.road);
   road.receiveShadow = true;
   road.castShadow = true;
@@ -146,7 +146,7 @@ export function createTrack(scene, materials, seed = 1337) {
 
   const treesGroup = createTrees(scene, materials, random);
 
-  const guardrail = buildGuardrails(scene, materials, curve, 10, 600);
+  const guardrail = buildGuardrails(scene, materials, curve, 13, 600);
 
   return { road, ground, curve, treesGroup, guardrailGroup: guardrail.group, guardrailData: guardrail.data, start: curve.getPointAt(0), tangent: curve.getTangentAt(0) };
 }
