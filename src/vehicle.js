@@ -136,7 +136,8 @@ export function createVehicle(scene, materials, start, tangent) {
 
     const steerInput = input.steer * tuning.maxSteer;
     const steerFactor = Math.abs(speed) > 0.5 ? Math.min(Math.abs(speed) / tuning.maxSpeed, 1) : 0;
-    yawAngle += steerInput * steerFactor * 3 * dt;
+    const steerSign = speed < 0 ? -1 : 1;
+    yawAngle += steerInput * steerFactor * steerSign * 3 * dt;
 
     updateOrientation();
 
