@@ -88,12 +88,12 @@ export function createVehicle(scene, materials, start, tangent) {
     springStiffness: 32000,
     springDamping: 2800,
     tireGrip: 1.2,
-    groundOffset: 0.30,
+    groundOffset: 0.22,
     airResistance: 0.015
   };
 
   const yaw = Math.atan2(tangent.x, tangent.z);
-  group.position.set(start.x, start.y + tuning.springRest + tuning.wheelRadius * 0.8, start.z);
+  group.position.set(start.x, start.y + 0.4, start.z);
   group.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
 
   const velocity = new THREE.Vector3();
@@ -128,8 +128,7 @@ export function createVehicle(scene, materials, start, tangent) {
     totalForce.y -= tuning.mass * 9.81;
 
     const speedFwd = forward.dot(velocity);
-
-    let anyWheelGrounded = false;
+    const grounded = [false, false, false, false];
 
     for (let i = 0; i < 4; i++) {
       const [lx, ly, lz] = wheelPositions[i];
@@ -150,19 +149,16 @@ export function createVehicle(scene, materials, start, tangent) {
         const groundH = getGroundHeight(wsMount.x, wsMount.z);
         if (groundH !== null) {
           const dist = wsMount.y - groundH;
-          springLength[i] = Math.max(dist, 0.05);
+          springLength[i] = Math.max(dist, 0.02);
 
-          if (dist < tuning.springRest + 0.3) {
+          if (dist < tuning.springRest + 0.35) {
             const compression = tuning.springRest - springLength[i];
             if (compression > 0) {
-              anyWheelGrounded = true;
+              grounded[i] = true;
               const compressionVel = (springLength[i] - springPrevLength[i]) / Math.max(dt, 0.001);
-              const springForce = tuning.springStiffness * compression;
-              const dampForce = -tuning.springDamping * compressionVel;
-              const totalSpring = springForce + dampForce;
+              const totalSpring = tuning.springStiffness * compression - tuning.springDamping * compressionVel;
               if (totalSpring > 0) {
                 totalForce.y += totalSpring;
-
                 const contactPt = new THREE.Vector3(wsMount.x, groundH, wsMount.z);
                 const r = contactPt.clone().sub(group.position);
                 totalTorque.add(new THREE.Vector3().crossVectors(r, new THREE.Vector3(0, totalSpring, 0)));
@@ -173,32 +169,42 @@ export function createVehicle(scene, materials, start, tangent) {
       }
 
       springPrevLength[i] = springLength[i];
-
-      if (springLength[i] < tuning.springRest + 0.15) {
-        if (i >= 2) {
-          if (input.throttle) {
-            const engineForce = forward.clone().multiplyScalar(tuning.enginePower);
-            totalForce.add(engineForce);
-            totalTorque.add(new THREE.Vector3().crossVectors(wsMount.clone().sub(group.position), engineForce));
-          }
-        }
-
-        if (input.reverse) {
-          if (speedFwd > 0.1) {
-            const brakeForce = forward.clone().multiplyScalar(-tuning.brakeForce);
-            totalForce.add(brakeForce);
-          } else {
-            const revForce = forward.clone().multiplyScalar(-tuning.enginePower * 0.35);
-            totalForce.add(revForce);
-          }
-        }
-
-        const lateralVel = right.dot(velocity);
-        const frictionForce = right.clone().multiplyScalar(-lateralVel * tuning.tireGrip * tuning.mass);
-        totalForce.add(frictionForce);
-        totalTorque.add(new THREE.Vector3().crossVectors(wsMount.clone().sub(group.position), frictionForce));
-      }
     }
+
+    for (let i = 0; i < 4; i++) {
+      if (!grounded[i]) continue;
+      const isFront = i < 2;
+      const [lx, ly, lz] = wheelPositions[i];
+      const localMount = new THREE.Vector3(lx, ly, lz);
+      let wsMount = worldPos(localMount);
+      if (isFront) {
+        const cosS = Math.cos(steerAngle);
+        const sinS = Math.sin(steerAngle);
+        const sx = lx * cosS - lz * sinS;
+        const sz = lx * sinS + lz * cosS;
+        wsMount = worldPos(new THREE.Vector3(sx, ly, sz));
+      }
+
+      if (i >= 2 && input.throttle) {
+        const engineForce = forward.clone().multiplyScalar(tuning.enginePower);
+        totalForce.add(engineForce);
+        totalTorque.add(new THREE.Vector3().crossVectors(wsMount.clone().sub(group.position), engineForce));
+      }
+
+      if (input.reverse) {
+        if (speedFwd > 0.1) {
+          totalForce.add(forward.clone().multiplyScalar(-tuning.brakeForce));
+        } else {
+          totalForce.add(forward.clone().multiplyScalar(-tuning.enginePower * 0.35));
+        }
+      }
+
+      const lateralVel = right.dot(velocity);
+      totalForce.add(right.clone().multiplyScalar(-lateralVel * tuning.tireGrip * tuning.mass));
+      totalTorque.add(new THREE.Vector3().crossVectors(wsMount.clone().sub(group.position), right.clone().multiplyScalar(-lateralVel * tuning.tireGrip * tuning.mass)));
+    }
+
+    const anyGrounded = grounded.some(g => g);
 
     if (!input.throttle && !input.reverse) {
       velocity.multiplyScalar(Math.max(0, 1 - tuning.airResistance * dt * 60));
@@ -219,7 +225,7 @@ export function createVehicle(scene, materials, start, tangent) {
       group.quaternion.premultiply(qRot).normalize();
     }
 
-    if (getGroundHeight && anyWheelGrounded) {
+    if (getGroundHeight && anyGrounded) {
       const groundCenter = getGroundHeight(group.position.x, group.position.z);
       if (groundCenter !== null) {
         const bodyTargetY = groundCenter + tuning.groundOffset + tuning.springRest - 0.08;
@@ -270,7 +276,9 @@ export function createVehicle(scene, materials, start, tangent) {
       }
     }
 
-    wheelSpin += speedFwd * dt / tuning.wheelRadius;
+    if (anyGrounded) {
+      wheelSpin += speedFwd * dt / tuning.wheelRadius;
+    }
 
     for (let i = 0; i < 4; i++) {
       const wg = wheelGroups[i];
