@@ -52,7 +52,7 @@ export function createVehicle(scene, physics, materials, start, tangent) {
     maxSteer: 0.55,
     brakeForce: 28,
     handbrakeForce: 55,
-    engineForce: 4000
+    engineForce: 8000
   };
 
   const down = { x: 0, y: -1, z: 0 };
