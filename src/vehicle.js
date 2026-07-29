@@ -38,7 +38,7 @@ export function createVehicle(scene, physics, materials, start, tangent) {
 
   const controller = physics.world.createVehicleController(body);
   controller.indexUpAxis = 1;
-  controller.setIndexForwardAxis = 2;
+  controller.setIndexForwardAxis(2);
   const tuning = {
     suspensionRestLength: 0.48,
     suspensionStiffness: 28,
