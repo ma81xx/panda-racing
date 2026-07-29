@@ -81,7 +81,7 @@ export function createVehicle(scene, physics, materials, start, tangent) {
     for (let i = 0; i < 4; i++) {
       controller.setWheelEngineForce(i, i < 2 ? engine : engine * 0.25);
       controller.setWheelBrake(i, input.handbrake && i >= 2 ? tuning.handbrakeForce : brake);
-      controller.setWheelSteering(i, i < 2 ? steer : 0);
+      controller.setWheelSteering(i, i < 2 ? -steer : 0);
     }
     controller.updateVehicle(dt);
   }
