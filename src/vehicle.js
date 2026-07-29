@@ -35,7 +35,8 @@ export function createVehicle(scene, materials, start, tangent) {
     brakeForce: 22,
     maxSteer: 0.55,
     airResistance: 0.03,
-    groundOffset: 0.72
+    groundOffset: 0.72,
+    wheelRadius: 0.42
   };
 
   const yaw = Math.atan2(tangent.x, tangent.z);
@@ -64,9 +65,11 @@ export function createVehicle(scene, materials, start, tangent) {
 
     if (throttle) {
       speed += tuning.acceleration * dt;
-    } else if (reverse) {
-      speed -= tuning.acceleration * 0.55 * dt;
-    } else {
+    }
+    if (reverse) {
+      speed -= tuning.acceleration * 0.8 * dt;
+    }
+    if (!throttle && !reverse) {
       const drag = 1 - tuning.airResistance;
       speed *= Math.pow(drag, dt * 60);
     }
