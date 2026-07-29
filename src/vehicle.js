@@ -40,14 +40,20 @@ export function createVehicle(scene, materials, start, tangent) {
     reverseAccel: 8
   };
 
-  const yaw = Math.atan2(tangent.x, tangent.z);
+  let yawAngle = Math.atan2(tangent.x, tangent.z);
+  let pitchAngle = 0;
   group.position.set(start.x, start.y + 1, start.z);
-  group.rotation.y = yaw;
 
   let speed = 0;
   let verticalVelocity = 0;
   let groundY = group.position.y;
-  let pitchAngle = 0;
+
+  function updateOrientation() {
+    const qYaw = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yawAngle);
+    const rightAxis = new THREE.Vector3(1, 0, 0).applyQuaternion(qYaw);
+    const qPitch = new THREE.Quaternion().setFromAxisAngle(rightAxis, pitchAngle);
+    group.quaternion.copy(qPitch.multiply(qYaw));
+  }
 
   function getForward() {
     return new THREE.Vector3(0, 0, 1).applyQuaternion(group.quaternion);
@@ -57,24 +63,27 @@ export function createVehicle(scene, materials, start, tangent) {
     return new THREE.Vector3(1, 0, 0).applyQuaternion(group.quaternion);
   }
 
-  function checkGuardrailCollision(guardrailData) {
+  function checkGuardrailCollision(guardrailData, dt) {
     if (!guardrailData || guardrailData.length === 0) return;
-    const carRadius = 2.5;
+    const carRadius = 3.5;
     for (const rail of guardrailData) {
       const dx = group.position.x - rail.x;
       const dz = group.position.z - rail.z;
       const dist = Math.sqrt(dx * dx + dz * dz);
       if (dist < carRadius) {
-        const pushDir = (dist > 0.001) ? dx / dist : rail.nx;
+        const nx = dist > 0.001 ? dx / dist : rail.nx;
+        const nz = dist > 0.001 ? dz / dist : rail.nz;
         const overlap = carRadius - dist;
-        group.position.x += pushDir * overlap;
-        group.position.z += (dist > 0.001) ? (dz / dist) * overlap : rail.nz * overlap;
+        group.position.x += nx * overlap * 0.15;
+        group.position.z += nz * overlap * 0.15;
         const forward = getForward();
-        const impactDot = forward.x * pushDir + forward.z * (dist > 0.001 ? dz / dist : rail.nz);
-        if (impactDot > 0) {
-          speed *= 0.3;
+        const dot = forward.x * nx + forward.z * nz;
+        const turnForce = (forward.x * nz - forward.z * nx) * 2;
+        yawAngle += turnForce * overlap * 0.4 * dt;
+        if (dot > 0) {
+          speed *= 0.85;
         } else {
-          speed *= 0.7;
+          speed *= 0.92;
         }
         return;
       }
@@ -93,11 +102,9 @@ export function createVehicle(scene, materials, start, tangent) {
       if (hF !== null) groundY = hF;
       if (hF !== null && hR !== null) {
         const slope = Math.atan2(hF - hR, 4);
-        pitchAngle += (slope - pitchAngle) * (1 - Math.exp(-dt * 15));
+        pitchAngle += (slope - pitchAngle) * (1 - Math.exp(-dt * 12));
       }
     }
-
-    group.rotation.x = pitchAngle;
 
     const throttle = input.throttle;
     const reverse = input.reverse;
@@ -125,13 +132,15 @@ export function createVehicle(scene, materials, start, tangent) {
 
     const steerInput = input.steer * tuning.maxSteer;
     const steerFactor = Math.abs(speed) > 0.5 ? Math.min(Math.abs(speed) / tuning.maxSpeed, 1) : 0;
-    group.rotation.y += steerInput * steerFactor * 3 * dt;
+    yawAngle += steerInput * steerFactor * 3 * dt;
+
+    updateOrientation();
 
     const forward = getForward();
     group.position.x += forward.x * speed * dt;
     group.position.z += forward.z * speed * dt;
 
-    checkGuardrailCollision(guardrailData);
+    checkGuardrailCollision(guardrailData, dt);
 
     const targetY = groundY + tuning.groundOffset;
     const inAir = group.position.y > targetY + 0.15;
