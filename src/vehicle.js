@@ -85,15 +85,15 @@ export function createVehicle(scene, materials, start, tangent) {
     maxSteer: 0.55,
     wheelRadius: 0.42,
     springRest: 0.52,
-    springStiffness: 32000,
-    springDamping: 2800,
+    springStiffness: 28000,
+    springDamping: 5000,
     tireGrip: 1.2,
     groundOffset: 0.22,
     airResistance: 0.015
   };
 
   const yaw = Math.atan2(tangent.x, tangent.z);
-  group.position.set(start.x, start.y + 0.4, start.z);
+  group.position.set(start.x, start.y + 0.2, start.z);
   group.quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
 
   const velocity = new THREE.Vector3();
@@ -101,8 +101,8 @@ export function createVehicle(scene, materials, start, tangent) {
   let steerAngle = 0;
   let wheelSpin = 0;
 
-  const springLength = [tuning.springRest, tuning.springRest, tuning.springRest, tuning.springRest];
-  const springPrevLength = [tuning.springRest, tuning.springRest, tuning.springRest, tuning.springRest];
+  const springLength = [0.42, 0.42, 0.42, 0.42];
+  const springPrevLength = [0.42, 0.42, 0.42, 0.42];
 
   function worldPos(bodyLocal) {
     return bodyLocal.clone().applyQuaternion(group.quaternion).add(group.position);
@@ -216,6 +216,11 @@ export function createVehicle(scene, materials, start, tangent) {
 
     const inertiaInv = new THREE.Vector3(1 / 700, 1 / 1400, 1 / 700);
     angularVelocity.add(totalTorque.multiply(inertiaInv).multiplyScalar(dt));
+
+    const rearGrounded = grounded[2] || grounded[3];
+    if (rearGrounded && Math.abs(speedFwd) > 0.1) {
+      angularVelocity.y += steerAngle * speedFwd * 0.8 * dt;
+    }
 
     if (angularVelocity.lengthSq() > 0.0001) {
       const angVelWorld = angularVelocity.clone();
