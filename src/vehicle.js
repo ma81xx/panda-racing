@@ -35,15 +35,31 @@ function createWheelMesh() {
 
 export function createVehicle(scene, materials, start, tangent) {
   const group = new THREE.Group();
-  const chassis = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.05, 3.5), materials.pandaWhite);
+
+  const bodyWhite = materials.pandaWhite.clone();
+  bodyWhite.transparent = true;
+  bodyWhite.opacity = 0.35;
+  bodyWhite.depthWrite = false;
+
+  const bodyBlack = materials.pandaBlack.clone();
+  bodyBlack.transparent = true;
+  bodyBlack.opacity = 0.35;
+  bodyBlack.depthWrite = false;
+
+  const bodyGlass = materials.glass.clone();
+  bodyGlass.transparent = true;
+  bodyGlass.opacity = 0.25;
+  bodyGlass.depthWrite = false;
+
+  const chassis = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.05, 3.5), bodyWhite);
   chassis.position.y = 0.75;
   chassis.castShadow = true;
-  const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.75, 0.9, 1.7), materials.glass);
+  const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.75, 0.9, 1.7), bodyGlass);
   cabin.position.set(0, 1.45, 0.25);
   cabin.castShadow = true;
-  const bumperFront = new THREE.Mesh(new THREE.BoxGeometry(2.25, 0.35, 0.35), materials.pandaBlack);
+  const bumperFront = new THREE.Mesh(new THREE.BoxGeometry(2.25, 0.35, 0.35), bodyBlack);
   bumperFront.position.set(0, 0.55, 1.9);
-  const bumperRear = new THREE.Mesh(new THREE.BoxGeometry(2.25, 0.35, 0.35), materials.pandaBlack);
+  const bumperRear = new THREE.Mesh(new THREE.BoxGeometry(2.25, 0.35, 0.35), bodyBlack);
   bumperRear.position.set(0, 0.55, -1.9);
   group.add(chassis, cabin, bumperFront, bumperRear);
 
