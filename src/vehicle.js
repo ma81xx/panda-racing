@@ -85,7 +85,7 @@ export function createVehicle(scene, materials, start, tangent) {
 
     const steerInput = input.steer * tuning.maxSteer;
     const steerFactor = Math.abs(speed) > 1 ? Math.min(Math.abs(speed) / tuning.maxSpeed, 1) : 0;
-    group.rotation.y -= steerInput * steerFactor * 3 * dt;
+    group.rotation.y += steerInput * steerFactor * 3 * dt;
 
     const forward = getForward();
     group.position.x += forward.x * speed * dt;

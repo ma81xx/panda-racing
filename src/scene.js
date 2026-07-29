@@ -34,8 +34,47 @@ export function createScene(canvas) {
   );
   scene.add(sky);
 
+  function createRoadTexture() {
+    const w = 1024;
+    const h = 64;
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+
+    ctx.fillStyle = '#383c42';
+    ctx.fillRect(0, 0, w, h);
+
+    for (let i = 0; i < 8000; i++) {
+      const x = Math.random() * w;
+      const y = Math.random() * h;
+      const b = 50 + Math.random() * 18;
+      ctx.fillStyle = `rgba(${b},${b},${b},0.35)`;
+      ctx.fillRect(x, y, 2, 2);
+    }
+
+    ctx.fillStyle = '#f0f0e0';
+    ctx.fillRect(0, 0, 16, h);
+    ctx.fillRect(w - 16, 0, 16, h);
+
+    ctx.fillStyle = '#f0f0e0';
+    const dash = 38;
+    const gap = 26;
+    for (let y = 0; y < h; y += dash + gap) {
+      ctx.fillRect(w / 2 - 3, y, 6, dash);
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.colorSpace = THREE.SRGBColorSpace;
+    return texture;
+  }
+
+  const roadTexture = createRoadTexture();
+
   const materials = {
-    road: new THREE.MeshStandardMaterial({ color: 0x343840, roughness: 0.9, flatShading: true }),
+    road: new THREE.MeshStandardMaterial({ map: roadTexture, roughness: 0.85 }),
     shoulder: new THREE.MeshStandardMaterial({ color: 0x8a7448, roughness: 1, flatShading: true }),
     grass: new THREE.MeshStandardMaterial({ color: 0x5f9f41, roughness: 1, flatShading: true }),
     pandaWhite: new THREE.MeshStandardMaterial({ color: 0xf4eee4, roughness: 0.7, flatShading: true }),
