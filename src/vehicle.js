@@ -7,16 +7,16 @@ export function createVehicle(scene, physics, materials, start, tangent) {
   chassis.position.y = 0.75;
   chassis.castShadow = true;
   const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.75, 0.9, 1.7), materials.glass);
-  cabin.position.set(0, 1.45, -0.25);
+  cabin.position.set(0, 1.45, 0.25);
   cabin.castShadow = true;
   const bumper = new THREE.Mesh(new THREE.BoxGeometry(2.25, 0.35, 0.35), materials.pandaBlack);
-  bumper.position.set(0, 0.55, -1.9);
+  bumper.position.set(0, 0.55, 1.9);
   group.add(chassis, cabin, bumper);
 
   const wheelMeshes = [];
   const wheelPositions = [
-    [-1.18, 0.25, -1.12], [1.18, 0.25, -1.12],
-    [-1.18, 0.25, 1.16], [1.18, 0.25, 1.16]
+    [-1.18, 0.25, 1.12], [1.18, 0.25, 1.12],
+    [-1.18, 0.25, -1.16], [1.18, 0.25, -1.16]
   ];
   wheelPositions.forEach(([x, y, z]) => {
     const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.34, 12), materials.wheel);
@@ -52,7 +52,7 @@ export function createVehicle(scene, physics, materials, start, tangent) {
     maxSteer: 0.55,
     brakeForce: 28,
     handbrakeForce: 55,
-    engineForce: 85
+    engineForce: 4000
   };
 
   const down = { x: 0, y: -1, z: 0 };
