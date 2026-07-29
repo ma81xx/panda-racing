@@ -225,34 +225,14 @@ export function createVehicle(scene, materials, start, tangent) {
       group.quaternion.premultiply(qRot).normalize();
     }
 
-    if (getGroundHeight && anyGrounded) {
-      const groundCenter = getGroundHeight(group.position.x, group.position.z);
-      if (groundCenter !== null) {
-        const bodyTargetY = groundCenter + tuning.groundOffset + tuning.springRest - 0.08;
-        if (group.position.y < bodyTargetY - 0.3) {
-          group.position.y = bodyTargetY - 0.3;
-          if (velocity.y < 0) velocity.y = 0;
-        }
-      }
-    }
-
     if (getGroundHeight) {
       const groundH = getGroundHeight(group.position.x, group.position.z);
       if (groundH !== null) {
-        const bodyTargetY = groundH + tuning.groundOffset + tuning.springRest - 0.08;
-        const inAir = group.position.y > bodyTargetY + 0.2;
-
-        if (inAir) {
-          if (group.position.y <= bodyTargetY) {
-            group.position.y = bodyTargetY;
-            if (velocity.y < -3) velocity.multiplyScalar(0.7);
-            velocity.y = Math.max(velocity.y, 0);
-            angularVelocity.multiplyScalar(0.4);
-          }
-        } else {
-          if (velocity.y < 0) velocity.y *= 0.2;
-          const alpha = 1 - Math.exp(-dt * 20);
-          group.position.y += (bodyTargetY - group.position.y) * alpha;
+        const minBodyY = groundH - 0.1;
+        if (group.position.y < minBodyY) {
+          group.position.y = minBodyY;
+          if (velocity.y < 0) velocity.y = 0;
+          angularVelocity.multiplyScalar(0.5);
         }
       }
     }
