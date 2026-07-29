@@ -128,6 +128,22 @@ export function createTrack(scene, materials, seed = 1337) {
     points[(idx + 2) % total].y += 7;
   });
 
+  let minY = Infinity;
+  for (const p of points) minY = Math.min(minY, p.y);
+  const yOffset = -3.2 - minY;
+  if (yOffset > 0) for (const p of points) p.y += yOffset;
+
+  const baseY = points[0].y;
+  const r0 = Math.sqrt(points[0].x ** 2 + points[0].z ** 2);
+  const aStep = (Math.PI * 2) / total;
+  for (const i of [0, 1, 2, total - 1, total - 2]) {
+    points[i].y = baseY;
+  }
+  for (const [i, mult] of [[1, 1], [total - 1, -1], [total - 2, -2]]) {
+    points[i].x = r0 * Math.cos(aStep * mult);
+    points[i].z = r0 * Math.sin(aStep * mult);
+  }
+
   const curve = new THREE.CatmullRomCurve3(points, true, 'catmullrom', 0.35);
   const roadGeometry = buildRoadGeometry(curve, 13, 520);
   const road = new THREE.Mesh(roadGeometry, materials.road);

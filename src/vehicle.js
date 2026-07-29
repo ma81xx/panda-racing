@@ -147,9 +147,12 @@ export function createVehicle(scene, materials, start, tangent) {
     if (inAir) {
       verticalVelocity -= 9.81 * dt;
       group.position.y += verticalVelocity * dt;
+      pitchAngle += verticalVelocity * 0.3 * dt;
       if (group.position.y <= targetY) {
         group.position.y = targetY;
+        if (verticalVelocity < -4) speed *= 0.85;
         verticalVelocity = 0;
+        pitchAngle += (pitchAngle * 0.5 - pitchAngle) * (1 - Math.exp(-dt * 20));
       }
     } else {
       verticalVelocity = 0;
