@@ -93,14 +93,16 @@ export function createVehicle(scene, materials, start, tangent) {
   }
 
   function update(input, dt, getGroundHeight, guardrailData) {
+    let hF = null;
+    let hR = null;
     if (getGroundHeight) {
       const forward = getForward();
       const sampleXF = group.position.x + forward.x * 2;
       const sampleZF = group.position.z + forward.z * 2;
-      const hF = getGroundHeight(sampleXF, sampleZF);
+      hF = getGroundHeight(sampleXF, sampleZF);
       const sampleXR = group.position.x - forward.x * 2;
       const sampleZR = group.position.z - forward.z * 2;
-      const hR = getGroundHeight(sampleXR, sampleZR);
+      hR = getGroundHeight(sampleXR, sampleZR);
       if (hF !== null) groundY = hF;
       if (hF !== null && hR !== null) {
         const slope = Math.atan2(hR - hF, 4);
