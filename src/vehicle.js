@@ -36,7 +36,8 @@ export function createVehicle(scene, materials, start, tangent) {
     maxSteer: 0.55,
     airResistance: 0.03,
     groundOffset: 0.72,
-    wheelRadius: 0.42
+    wheelRadius: 0.42,
+    reverseAccel: 8
   };
 
   const yaw = Math.atan2(tangent.x, tangent.z);
@@ -51,7 +52,35 @@ export function createVehicle(scene, materials, start, tangent) {
     return new THREE.Vector3(0, 0, 1).applyQuaternion(group.quaternion);
   }
 
-  function update(input, dt, getGroundHeight) {
+  function getRight() {
+    return new THREE.Vector3(1, 0, 0).applyQuaternion(group.quaternion);
+  }
+
+  function checkGuardrailCollision(guardrailData) {
+    if (!guardrailData || guardrailData.length === 0) return;
+    const carRadius = 2.5;
+    for (const rail of guardrailData) {
+      const dx = group.position.x - rail.x;
+      const dz = group.position.z - rail.z;
+      const dist = Math.sqrt(dx * dx + dz * dz);
+      if (dist < carRadius) {
+        const pushDir = (dist > 0.001) ? dx / dist : rail.nx;
+        const overlap = carRadius - dist;
+        group.position.x += pushDir * overlap;
+        group.position.z += (dist > 0.001) ? (dz / dist) * overlap : rail.nz * overlap;
+        const forward = getForward();
+        const impactDot = forward.x * pushDir + forward.z * (dist > 0.001 ? dz / dist : rail.nz);
+        if (impactDot > 0) {
+          speed *= 0.3;
+        } else {
+          speed *= 0.7;
+        }
+        return;
+      }
+    }
+  }
+
+  function update(input, dt, getGroundHeight, guardrailData) {
     if (getGroundHeight) {
       const forward = getForward();
       const sampleX = group.position.x + forward.x * 2;
@@ -64,32 +93,35 @@ export function createVehicle(scene, materials, start, tangent) {
     const reverse = input.reverse;
 
     if (throttle) {
-      speed += tuning.acceleration * dt;
-    }
-    if (reverse) {
-      speed -= tuning.acceleration * 0.8 * dt;
-    }
-    if (!throttle && !reverse) {
+      const speedFactor = 1 - Math.abs(speed) / tuning.maxSpeed;
+      const accel = tuning.acceleration * Math.max(speedFactor, 0.05);
+      speed += accel * dt;
+    } else if (reverse) {
+      if (speed > 0.1) {
+        speed -= tuning.brakeForce * dt;
+        if (speed < 0) speed = 0;
+      } else {
+        const speedFactor = 1 - Math.abs(speed) / (tuning.maxSpeed * 0.4);
+        const revAccel = tuning.reverseAccel * Math.max(speedFactor, 0.05);
+        speed -= revAccel * dt;
+      }
+    } else {
       const drag = 1 - tuning.airResistance;
       speed *= Math.pow(drag, dt * 60);
-    }
-
-    const brake = input.braking && !input.throttle ? tuning.brakeForce : 0;
-    if (brake > 0 && Math.abs(speed) > 0.1) {
-      const brakeDir = Math.sign(speed);
-      speed -= brakeDir * brake * dt;
-      if (Math.sign(speed) !== brakeDir) speed = 0;
+      if (Math.abs(speed) < 0.05) speed = 0;
     }
 
     speed = THREE.MathUtils.clamp(speed, -tuning.maxSpeed * 0.4, tuning.maxSpeed);
 
     const steerInput = input.steer * tuning.maxSteer;
-    const steerFactor = Math.abs(speed) > 1 ? Math.min(Math.abs(speed) / tuning.maxSpeed, 1) : 0;
+    const steerFactor = Math.abs(speed) > 0.5 ? Math.min(Math.abs(speed) / tuning.maxSpeed, 1) : 0;
     group.rotation.y += steerInput * steerFactor * 3 * dt;
 
     const forward = getForward();
     group.position.x += forward.x * speed * dt;
     group.position.z += forward.z * speed * dt;
+
+    checkGuardrailCollision(guardrailData);
 
     const targetY = groundY + tuning.groundOffset;
     const inAir = group.position.y > targetY + 0.15;
@@ -122,6 +154,7 @@ export function createVehicle(scene, materials, start, tangent) {
     f.add(tuning, 'maxSteer', 0.1, 1.1, 0.01).name('sterzata');
     f.add(tuning, 'airResistance', 0, 0.15, 0.01).name('resistenza aria');
     f.add(tuning, 'groundOffset', 0.3, 1.2, 0.01).name('altezza suolo');
+    f.add(tuning, 'reverseAccel', 2, 20, 1).name('retromarcia');
   }
 
   return { group, tuning, update, sync, addGui };

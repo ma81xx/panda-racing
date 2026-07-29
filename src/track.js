@@ -38,6 +38,79 @@ function buildRoadGeometry(curve, width, samples) {
   return geometry;
 }
 
+function createTrees(scene, materials, random) {
+  const group = new THREE.Group();
+  for (let i = 0; i < 50; i++) {
+    const a = random() * Math.PI * 2;
+    const r = 60 + random() * 120;
+    const x = Math.cos(a) * r;
+    const z = Math.sin(a) * r;
+    const tree = new THREE.Group();
+    const h = 3 + random() * 3;
+    const trunk = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.25, 0.35, h, 6),
+      materials.wood
+    );
+    trunk.position.y = h / 2;
+    trunk.castShadow = true;
+    tree.add(trunk);
+
+    const foliageLayers = 2 + Math.floor(random() * 2);
+    for (let j = 0; j < foliageLayers; j++) {
+      const radius = 1.2 + random() * 0.8 - j * 0.3;
+      const fy = h * 0.6 + j * 0.9;
+      const foliage = new THREE.Mesh(
+        new THREE.ConeGeometry(radius, 2 + random(), 8),
+        materials.foliage
+      );
+      foliage.position.y = fy;
+      foliage.castShadow = true;
+      tree.add(foliage);
+    }
+    tree.position.set(x, 0, z);
+    group.add(tree);
+  }
+  scene.add(group);
+  return group;
+}
+
+function buildGuardrails(scene, materials, curve, roadWidth, samples) {
+  const guardrailData = [];
+  const group = new THREE.Group();
+  const postGeo = new THREE.BoxGeometry(0.15, 0.8, 0.15);
+  const railGeo = new THREE.BoxGeometry(0.1, 0.15, 2.2);
+  const up = new THREE.Vector3(0, 1, 0);
+
+  for (let i = 0; i < samples; i++) {
+    const t = i / samples;
+    const center = curve.getPointAt(t);
+    const tangent = curve.getTangentAt(t).normalize();
+    const side = new THREE.Vector3().crossVectors(up, tangent).normalize();
+
+    for (const dir of [-1, 1]) {
+      const edge = center.clone().addScaledVector(side, dir * roadWidth / 2);
+      const postY = edge.y + 0.4;
+
+      const post = new THREE.Mesh(postGeo, materials.guardrail);
+      post.position.copy(edge);
+      post.position.y = postY;
+      post.castShadow = true;
+      group.add(post);
+
+      const rail = new THREE.Mesh(railGeo, materials.guardrail);
+      rail.position.copy(edge);
+      rail.position.y = postY + 0.35;
+      rail.lookAt(edge.clone().add(tangent));
+      rail.castShadow = true;
+      group.add(rail);
+
+      guardrailData.push({ x: edge.x, y: rail.position.y, z: edge.z, nx: side.x * dir, nz: side.z * dir });
+    }
+  }
+  scene.add(group);
+  return { data: guardrailData, group };
+}
+
 export function createTrack(scene, materials, seed = 1337) {
   const random = mulberry32(seed);
   const points = [];
@@ -71,14 +144,9 @@ export function createTrack(scene, materials, seed = 1337) {
   ground.receiveShadow = true;
   scene.add(ground);
 
-  for (let i = 0; i < 36; i++) {
-    const cone = new THREE.Mesh(new THREE.ConeGeometry(1.2 + random(), 5 + random() * 4, 5), materials.shoulder);
-    const a = random() * Math.PI * 2;
-    const r = 105 + random() * 35;
-    cone.position.set(Math.cos(a) * r, -1, Math.sin(a) * r);
-    cone.castShadow = true;
-    scene.add(cone);
-  }
+  const treesGroup = createTrees(scene, materials, random);
 
-  return { road, ground, curve, start: curve.getPointAt(0), tangent: curve.getTangentAt(0) };
+  const guardrail = buildGuardrails(scene, materials, curve, 10, 600);
+
+  return { road, ground, curve, treesGroup, guardrailGroup: guardrail.group, guardrailData: guardrail.data, start: curve.getPointAt(0), tangent: curve.getTangentAt(0) };
 }

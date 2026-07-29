@@ -53,15 +53,17 @@ export function createScene(canvas) {
       ctx.fillRect(x, y, 2, 2);
     }
 
-    ctx.fillStyle = '#f0f0e0';
-    ctx.fillRect(0, 0, 16, h);
-    ctx.fillRect(w - 16, 0, 16, h);
+    const lineGap = 80;
+    const lineW = 28;
+    ctx.fillStyle = '#e8e8d8';
+    ctx.fillRect(lineGap, 0, lineW, h);
+    ctx.fillRect(w - lineGap - lineW, 0, lineW, h);
 
-    ctx.fillStyle = '#f0f0e0';
-    const dash = 38;
-    const gap = 26;
+    ctx.fillStyle = '#e8e8d8';
+    const dash = 40;
+    const gap = 28;
     for (let y = 0; y < h; y += dash + gap) {
-      ctx.fillRect(w / 2 - 3, y, 6, dash);
+      ctx.fillRect(w / 2 - lineW / 2, y, lineW, dash);
     }
 
     const texture = new THREE.CanvasTexture(canvas);
@@ -80,7 +82,10 @@ export function createScene(canvas) {
     pandaWhite: new THREE.MeshStandardMaterial({ color: 0xf4eee4, roughness: 0.7, flatShading: true }),
     pandaBlack: new THREE.MeshStandardMaterial({ color: 0x202329, roughness: 0.8, flatShading: true }),
     glass: new THREE.MeshStandardMaterial({ color: 0x7fc7d9, roughness: 0.35, metalness: 0.05, flatShading: true }),
-    wheel: new THREE.MeshStandardMaterial({ color: 0x151515, roughness: 1, flatShading: true })
+    wheel: new THREE.MeshStandardMaterial({ color: 0x151515, roughness: 1, flatShading: true }),
+    guardrail: new THREE.MeshStandardMaterial({ color: 0x889099, roughness: 0.6, metalness: 0.7, flatShading: true }),
+    wood: new THREE.MeshStandardMaterial({ color: 0x6b4c3b, roughness: 0.9, flatShading: true }),
+    foliage: new THREE.MeshStandardMaterial({ color: 0x3d7a28, roughness: 0.85, flatShading: true })
   };
 
   window.addEventListener('resize', () => {

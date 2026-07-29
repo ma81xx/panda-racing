@@ -34,6 +34,8 @@ function bootstrap() {
     if (track) {
       scene.remove(track.road);
       scene.remove(track.ground);
+      scene.remove(track.guardrailGroup);
+      scene.remove(track.treesGroup);
     }
     if (vehicle) scene.remove(vehicle.group);
     track = createTrack(scene, materials, seed);
@@ -61,7 +63,7 @@ function bootstrap() {
   function animate() {
     requestAnimationFrame(animate);
     const delta = Math.min(clock.getDelta(), 0.1);
-    vehicle.update(input, delta, getGroundHeight);
+    vehicle.update(input, delta, getGroundHeight, track.guardrailData);
     updateCamera(delta);
     renderer.render(scene, camera);
   }
