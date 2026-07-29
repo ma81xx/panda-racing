@@ -86,6 +86,7 @@ export function createVehicle(scene, materials, start, tangent) {
   let wheelSpin = 0;
 
   const springLength = [tuning.springRest, tuning.springRest, tuning.springRest, tuning.springRest];
+  const springPrevLength = [tuning.springRest, tuning.springRest, tuning.springRest, tuning.springRest];
 
   function worldPos(bodyLocal) {
     return bodyLocal.clone().applyQuaternion(group.quaternion).add(group.position);
@@ -139,21 +140,25 @@ export function createVehicle(scene, materials, start, tangent) {
             const compression = tuning.springRest - springLength[i];
             if (compression > 0) {
               anyWheelGrounded = true;
+              const compressionVel = (springLength[i] - springPrevLength[i]) / Math.max(dt, 0.001);
               const springForce = tuning.springStiffness * compression;
-              totalForce.y += springForce;
+              const dampForce = -tuning.springDamping * compressionVel;
+              const totalSpring = springForce + dampForce;
+              if (totalSpring > 0) {
+                totalForce.y += totalSpring;
 
-              const contactPt = new THREE.Vector3(wsMount.x, groundH, wsMount.z);
-              const r = contactPt.clone().sub(group.position);
-              totalTorque.add(new THREE.Vector3().crossVectors(r, new THREE.Vector3(0, springForce, 0)));
-
-              const dampForce = -tuning.springDamping * velocity.y;
-              totalForce.y += dampForce;
+                const contactPt = new THREE.Vector3(wsMount.x, groundH, wsMount.z);
+                const r = contactPt.clone().sub(group.position);
+                totalTorque.add(new THREE.Vector3().crossVectors(r, new THREE.Vector3(0, totalSpring, 0)));
+              }
             }
           }
         }
       }
 
-      if (springLength[i] < tuning.springRest + 0.1 && Math.abs(speedFwd) > 0.2) {
+      springPrevLength[i] = springLength[i];
+
+      if (springLength[i] < tuning.springRest + 0.15) {
         if (i >= 2) {
           if (input.throttle) {
             const engineForce = forward.clone().multiplyScalar(tuning.enginePower);
