@@ -46,7 +46,9 @@ export function createVehicle(scene, materials, start, tangent) {
 
   let speed = 0;
   let verticalVelocity = 0;
+  let pitchVelocity = 0;
   let groundY = group.position.y;
+  let wasInAir = false;
 
   function updateOrientation() {
     const qYaw = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yawAngle);
@@ -144,21 +146,35 @@ export function createVehicle(scene, materials, start, tangent) {
 
     const targetY = groundY + tuning.groundOffset;
     const inAir = group.position.y > targetY + 0.15;
+
+    if (!wasInAir && inAir && speed > 2) {
+      const rampSlope = hF !== null && hR !== null ? Math.atan2(hR - hF, 4) : 0;
+      pitchVelocity = rampSlope * speed * 0.6 + verticalVelocity * 0.2;
+    }
+
     if (inAir) {
       verticalVelocity -= 9.81 * dt;
       group.position.y += verticalVelocity * dt;
-      pitchAngle += verticalVelocity * 0.3 * dt;
+      pitchAngle += pitchVelocity * dt;
       if (group.position.y <= targetY) {
         group.position.y = targetY;
-        if (verticalVelocity < -4) speed *= 0.85;
+        if (verticalVelocity < -5) speed *= 0.8;
         verticalVelocity = 0;
-        pitchAngle += (pitchAngle * 0.5 - pitchAngle) * (1 - Math.exp(-dt * 20));
+        pitchVelocity *= 0.3;
       }
     } else {
+      if (wasInAir) {
+        pitchVelocity *= 0.1;
+      }
       verticalVelocity = 0;
+      if (hF !== null && hR !== null) {
+        const slope = Math.atan2(hR - hF, 4);
+        pitchAngle += (slope - pitchAngle) * (1 - Math.exp(-dt * 12));
+      }
       const alpha = 1 - Math.exp(-dt * 25);
       group.position.y += (targetY - group.position.y) * alpha;
     }
+    wasInAir = inAir;
 
     for (let i = 0; i < 4; i++) {
       wheelMeshes[i].rotation.x += speed * dt / tuning.wheelRadius;
