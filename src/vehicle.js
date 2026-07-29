@@ -9,9 +9,11 @@ export function createVehicle(scene, physics, materials, start, tangent) {
   const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.75, 0.9, 1.7), materials.glass);
   cabin.position.set(0, 1.45, 0.25);
   cabin.castShadow = true;
-  const bumper = new THREE.Mesh(new THREE.BoxGeometry(2.25, 0.35, 0.35), materials.pandaBlack);
-  bumper.position.set(0, 0.55, 1.9);
-  group.add(chassis, cabin, bumper);
+  const bumperFront = new THREE.Mesh(new THREE.BoxGeometry(2.25, 0.35, 0.35), materials.pandaBlack);
+  bumperFront.position.set(0, 0.55, 1.9);
+  const bumperRear = new THREE.Mesh(new THREE.BoxGeometry(2.25, 0.35, 0.35), materials.pandaBlack);
+  bumperRear.position.set(0, 0.55, -1.9);
+  group.add(chassis, cabin, bumperFront, bumperRear);
 
   const wheelMeshes = [];
   const wheelPositions = [
@@ -75,7 +77,7 @@ export function createVehicle(scene, physics, materials, start, tangent) {
 
   function update(input, dt) {
     applyTuning();
-    const engine = (input.throttle - input.reverse * 0.55) * tuning.engineForce;
+    const engine = input.throttle ? tuning.engineForce : input.reverse ? -0.55 * tuning.engineForce : 0;
     const steer = input.steer * tuning.maxSteer;
     const brake = input.braking && !input.throttle ? tuning.brakeForce : 0;
     for (let i = 0; i < 4; i++) {
