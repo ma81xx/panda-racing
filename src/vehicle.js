@@ -65,7 +65,7 @@ export function createVehicle(scene, materials, start, tangent) {
 
   function checkGuardrailCollision(guardrailData, dt) {
     if (!guardrailData || guardrailData.length === 0) return;
-    const carRadius = 3.5;
+    const carRadius = 1.8;
     for (const rail of guardrailData) {
       const dx = group.position.x - rail.x;
       const dz = group.position.z - rail.z;
@@ -101,7 +101,7 @@ export function createVehicle(scene, materials, start, tangent) {
       const hR = getGroundHeight(sampleXR, sampleZR);
       if (hF !== null) groundY = hF;
       if (hF !== null && hR !== null) {
-        const slope = Math.atan2(hF - hR, 4);
+        const slope = Math.atan2(hR - hF, 4);
         pitchAngle += (slope - pitchAngle) * (1 - Math.exp(-dt * 12));
       }
     }
