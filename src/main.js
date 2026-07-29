@@ -1,36 +1,47 @@
 import * as THREE from 'three';
 import GUI from 'lil-gui';
 import { createScene } from './scene.js';
-import { createPhysics } from './physics.js';
 import { createTrack } from './track.js';
 import { createVehicle } from './vehicle.js';
 import { createInput } from './input.js';
-import { createDebugRenderer } from './debugRenderer.js';
 import './style.css';
 
-async function bootstrap() {
+const raycaster = new THREE.Raycaster();
+const down = new THREE.Vector3(0, -1, 0);
+
+function bootstrap() {
   const canvas = document.querySelector('#app');
   const { scene, renderer, camera, materials } = createScene(canvas);
-  const physics = await createPhysics();
   const input = createInput();
-  const gui = new GUI({ title: 'Panda Racing Debug' });
+  const gui = new GUI({ title: 'Panda Racing' });
   const settings = { seed: 1337, regenerate: () => resetWorld(settings.seed) };
   gui.add(settings, 'seed', 1, 999999, 1);
   gui.add(settings, 'regenerate').name('Rigenera tracciato');
 
   let track;
   let vehicle;
+
+  function getGroundHeight(x, z) {
+    raycaster.set(new THREE.Vector3(x, 200, z), down);
+    const hits = raycaster.intersectObject(track.road, false);
+    if (hits.length > 0) return hits[0].point.y;
+    const hitsGround = raycaster.intersectObject(track.ground, false);
+    if (hitsGround.length > 0) return hitsGround[0].point.y;
+    return null;
+  }
+
   function resetWorld(seed) {
-    if (track) [track.road, track.ground].forEach((obj) => scene.remove(obj));
+    if (track) {
+      scene.remove(track.road);
+      scene.remove(track.ground);
+    }
     if (vehicle) scene.remove(vehicle.group);
-    physics.world.forEachRigidBody((body) => physics.world.removeRigidBody(body));
-    track = createTrack(scene, physics, materials, seed);
-    vehicle = createVehicle(scene, physics, materials, track.start, track.tangent);
+    track = createTrack(scene, materials, seed);
+    vehicle = createVehicle(scene, materials, track.start, track.tangent);
     vehicle.addGui(gui);
   }
   resetWorld(settings.seed);
 
-  const debug = createDebugRenderer(scene, physics.world, gui);
   const clock = new THREE.Clock();
   const chasePosition = new THREE.Vector3();
   const chaseTarget = new THREE.Vector3();
@@ -49,11 +60,9 @@ async function bootstrap() {
 
   function animate() {
     requestAnimationFrame(animate);
-    const delta = clock.getDelta();
-    physics.step(delta, (dt) => vehicle.update(input, dt));
-    vehicle.sync();
+    const delta = Math.min(clock.getDelta(), 0.1);
+    vehicle.update(input, delta, getGroundHeight);
     updateCamera(delta);
-    debug.update();
     renderer.render(scene, camera);
   }
 

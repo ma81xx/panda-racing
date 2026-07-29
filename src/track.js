@@ -38,7 +38,7 @@ function buildRoadGeometry(curve, width, samples) {
   return geometry;
 }
 
-export function createTrack(scene, physics, materials, seed = 1337) {
+export function createTrack(scene, materials, seed = 1337) {
   const random = mulberry32(seed);
   const points = [];
   const total = 28;
@@ -50,9 +50,9 @@ export function createTrack(scene, physics, materials, seed = 1337) {
   }
   const jumpIndexes = [5, 14, 22];
   jumpIndexes.forEach((idx) => {
-    points[idx].y += 8;      // take-off ramp crest
-    points[(idx + 1) % total].y += 13; // airy gap apex
-    points[(idx + 2) % total].y += 7;  // landing ramp
+    points[idx].y += 8;
+    points[(idx + 1) % total].y += 13;
+    points[(idx + 2) % total].y += 7;
   });
 
   const curve = new THREE.CatmullRomCurve3(points, true, 'catmullrom', 0.35);
@@ -80,10 +80,5 @@ export function createTrack(scene, physics, materials, seed = 1337) {
     scene.add(cone);
   }
 
-  const vertices = new Float32Array(roadGeometry.attributes.position.array);
-  const indices = new Uint32Array(roadGeometry.index.array);
-  const body = physics.world.createRigidBody(physics.RAPIER.RigidBodyDesc.fixed());
-  physics.world.createCollider(physics.RAPIER.ColliderDesc.trimesh(vertices, indices), body);
-
-  return { road, ground, curve, start: curve.getPointAt(0), tangent: curve.getTangentAt(0), body };
+  return { road, ground, curve, start: curve.getPointAt(0), tangent: curve.getTangentAt(0) };
 }

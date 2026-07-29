@@ -1,7 +1,6 @@
 import * as THREE from 'three';
-import { syncMeshToBody } from './physics.js';
 
-export function createVehicle(scene, physics, materials, start, tangent) {
+export function createVehicle(scene, materials, start, tangent) {
   const group = new THREE.Group();
   const chassis = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.05, 3.5), materials.pandaWhite);
   chassis.position.y = 0.75;
@@ -30,88 +29,97 @@ export function createVehicle(scene, physics, materials, start, tangent) {
   });
   scene.add(group);
 
-  const bodyDesc = physics.RAPIER.RigidBodyDesc.dynamic()
-    .setTranslation(start.x, start.y + 1, start.z)
-    .setCanSleep(false);
-  const yaw = Math.atan2(tangent.x, tangent.z);
-  bodyDesc.setRotation({ x: 0, y: Math.sin(yaw / 2), z: 0, w: Math.cos(yaw / 2) });
-  const body = physics.world.createRigidBody(bodyDesc);
-  physics.world.createCollider(physics.RAPIER.ColliderDesc.cuboid(1.1, 0.55, 1.75).setDensity(420), body);
-
-  const controller = physics.world.createVehicleController(body);
-  controller.indexUpAxis = 1;
-  controller.setIndexForwardAxis = 2;
   const tuning = {
-    suspensionRestLength: 0.48,
-    suspensionStiffness: 28,
-    maxSuspensionTravel: 0.42,
-    dampingCompression: 3.6,
-    dampingRelaxation: 4.8,
-    frictionSlip: 1.45,
-    wheelRadius: 0.42,
-    frontGrip: 1.35,
-    rearGrip: 1.15,
+    maxSpeed: 35,
+    acceleration: 18,
+    brakeForce: 22,
     maxSteer: 0.55,
-    brakeForce: 28,
-    handbrakeForce: 55,
-    engineForce: 8000
+    airResistance: 0.03,
+    groundOffset: 0.72
   };
 
-  const down = { x: 0, y: -1, z: 0 };
-  const axle = { x: -1, y: 0, z: 0 };
-  wheelPositions.forEach(([x, y, z]) => controller.addWheel({ x, y, z }, down, axle, tuning.suspensionRestLength, tuning.wheelRadius));
+  const yaw = Math.atan2(tangent.x, tangent.z);
+  group.position.set(start.x, start.y + 1, start.z);
+  group.rotation.y = yaw;
 
-  function applyTuning() {
-    for (let i = 0; i < 4; i++) {
-      controller.setWheelSuspensionRestLength(i, tuning.suspensionRestLength);
-      controller.setWheelSuspensionStiffness(i, tuning.suspensionStiffness);
-      controller.setWheelMaxSuspensionTravel(i, tuning.maxSuspensionTravel);
-      controller.setWheelSuspensionCompression(i, tuning.dampingCompression);
-      controller.setWheelSuspensionRelaxation(i, tuning.dampingRelaxation);
-      const axleGrip = i < 2 ? tuning.frontGrip : tuning.rearGrip;
-      controller.setWheelFrictionSlip(i, tuning.frictionSlip * axleGrip);
-      controller.setWheelRadius(i, tuning.wheelRadius);
-    }
+  let speed = 0;
+  let verticalVelocity = 0;
+  let groundY = group.position.y;
+
+  function getForward() {
+    return new THREE.Vector3(0, 0, 1).applyQuaternion(group.quaternion);
   }
-  applyTuning();
 
-  function update(input, dt) {
-    applyTuning();
-    const engine = input.throttle ? tuning.engineForce : input.reverse ? -0.55 * tuning.engineForce : 0;
-    const steer = input.steer * tuning.maxSteer;
-    const brake = input.braking && !input.throttle ? tuning.brakeForce : 0;
-    for (let i = 0; i < 4; i++) {
-      controller.setWheelEngineForce(i, i < 2 ? engine : engine * 0.25);
-      controller.setWheelBrake(i, input.handbrake && i >= 2 ? tuning.handbrakeForce : brake);
-      controller.setWheelSteering(i, i < 2 ? -steer : 0);
+  function update(input, dt, getGroundHeight) {
+    if (getGroundHeight) {
+      const forward = getForward();
+      const sampleX = group.position.x + forward.x * 2;
+      const sampleZ = group.position.z + forward.z * 2;
+      const h = getGroundHeight(sampleX, sampleZ);
+      if (h !== null) groundY = h;
     }
-    controller.updateVehicle(dt);
+
+    const throttle = input.throttle;
+    const reverse = input.reverse;
+
+    if (throttle) {
+      speed += tuning.acceleration * dt;
+    } else if (reverse) {
+      speed -= tuning.acceleration * 0.55 * dt;
+    } else {
+      const drag = 1 - tuning.airResistance;
+      speed *= Math.pow(drag, dt * 60);
+    }
+
+    const brake = input.braking && !input.throttle ? tuning.brakeForce : 0;
+    if (brake > 0 && Math.abs(speed) > 0.1) {
+      const brakeDir = Math.sign(speed);
+      speed -= brakeDir * brake * dt;
+      if (Math.sign(speed) !== brakeDir) speed = 0;
+    }
+
+    speed = THREE.MathUtils.clamp(speed, -tuning.maxSpeed * 0.4, tuning.maxSpeed);
+
+    const steerInput = input.steer * tuning.maxSteer;
+    const steerFactor = Math.abs(speed) > 1 ? Math.min(Math.abs(speed) / tuning.maxSpeed, 1) : 0;
+    group.rotation.y -= steerInput * steerFactor * 3 * dt;
+
+    const forward = getForward();
+    group.position.x += forward.x * speed * dt;
+    group.position.z += forward.z * speed * dt;
+
+    const targetY = groundY + tuning.groundOffset;
+    const inAir = group.position.y > targetY + 0.15;
+    if (inAir) {
+      verticalVelocity -= 9.81 * dt;
+      group.position.y += verticalVelocity * dt;
+      if (group.position.y <= targetY) {
+        group.position.y = targetY;
+        verticalVelocity = 0;
+      }
+    } else {
+      verticalVelocity = 0;
+      const alpha = 1 - Math.exp(-dt * 25);
+      group.position.y += (targetY - group.position.y) * alpha;
+    }
+
+    for (let i = 0; i < 4; i++) {
+      wheelMeshes[i].rotation.x += speed * dt / tuning.wheelRadius;
+    }
   }
 
   function sync() {
-    syncMeshToBody(group, body);
-    for (let i = 0; i < 4; i++) {
-      const transform = controller.wheelChassisConnectionPointCs(i);
-      if (transform) wheelMeshes[i].position.set(transform.x, transform.y, transform.z);
-      wheelMeshes[i].scale.setScalar(tuning.wheelRadius / 0.42);
-    }
   }
 
   function addGui(gui) {
     const f = gui.addFolder('Panda tuning');
-    f.add(tuning, 'suspensionRestLength', 0.15, 1.1, 0.01);
-    f.add(tuning, 'suspensionStiffness', 5, 80, 0.5);
-    f.add(tuning, 'maxSuspensionTravel', 0.05, 1, 0.01);
-    f.add(tuning, 'dampingCompression', 0.5, 10, 0.1);
-    f.add(tuning, 'dampingRelaxation', 0.5, 12, 0.1);
-    f.add(tuning, 'frictionSlip', 0.2, 4, 0.01);
-    f.add(tuning, 'wheelRadius', 0.25, 0.75, 0.01);
-    f.add(tuning, 'frontGrip', 0.2, 3, 0.01);
-    f.add(tuning, 'rearGrip', 0.2, 3, 0.01);
+    f.add(tuning, 'maxSpeed', 10, 60, 1).name('velocità max');
+    f.add(tuning, 'acceleration', 5, 40, 1).name('accelerazione');
+    f.add(tuning, 'brakeForce', 5, 50, 1).name('freno');
     f.add(tuning, 'maxSteer', 0.1, 1.1, 0.01).name('sterzata');
-    f.add(tuning, 'brakeForce', 0, 90, 1).name('freno');
-    f.add(tuning, 'handbrakeForce', 0, 120, 1).name('freno a mano');
+    f.add(tuning, 'airResistance', 0, 0.15, 0.01).name('resistenza aria');
+    f.add(tuning, 'groundOffset', 0.3, 1.2, 0.01).name('altezza suolo');
   }
 
-  return { group, body, controller, tuning, update, sync, addGui };
+  return { group, tuning, update, sync, addGui };
 }
