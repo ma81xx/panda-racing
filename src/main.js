@@ -37,7 +37,7 @@ async function bootstrap() {
 
   function updateCamera(delta) {
     const car = vehicle.group;
-    const desiredOffset = new THREE.Vector3(0, 5.5, 10).applyQuaternion(car.quaternion);
+    const desiredOffset = new THREE.Vector3(0, 5.5, -10).applyQuaternion(car.quaternion);
     const desiredPosition = car.position.clone().add(desiredOffset);
     const desiredTarget = car.position.clone().add(new THREE.Vector3(0, 1.2, 0));
     const alpha = 1 - Math.exp(-delta * 5);
@@ -57,7 +57,7 @@ async function bootstrap() {
     renderer.render(scene, camera);
   }
 
-  chasePosition.copy(vehicle.group.position).add(new THREE.Vector3(0, 6, 12));
+  chasePosition.copy(vehicle.group.position).add(new THREE.Vector3(0, 6, -12));
   chaseTarget.copy(vehicle.group.position);
   animate();
 }
