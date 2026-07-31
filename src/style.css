@@ -43,3 +43,16 @@ html, body, #app {
   .tc-btn { width: 4.5rem; height: 4.5rem; border-radius: 1rem; font-size: 1.7rem; }
   .tc-wide { font-size: 0.95rem; }
 }
+
+#hud {
+  position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 20;
+  display: flex; align-items: center; gap: 0.8rem;
+  pointer-events: none; user-select: none;
+}
+#hud-rpm { opacity: 0.65; }
+#hud-speed {
+  color: rgba(255,255,255,0.8); font: 700 1.6rem system-ui, sans-serif;
+  text-align: center; min-width: 4rem;
+}
+#hud-speed span { font-size: 2.4rem; display: block; line-height: 1; }
+#hud-speed small { font-size: 0.8rem; opacity: 0.5; }
