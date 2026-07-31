@@ -268,12 +268,12 @@ export function createVehicle(
       springLen[i] = actualSpring;
 
       const compression = SPRING_REST - springLen[i];
-      const compVel = (springLen[i] - prevSpringLen[i]) / Math.max(dt, 0.001);
+      const compVel = -bodyVel.y;
 
       if (compression > 0) {
         grounded[i] = true;
         const springF = tuning.springStiffness * compression;
-        const dampF = THREE.MathUtils.clamp(-tuning.springDamping * compVel, -tuning.springStiffness * 0.4, tuning.springStiffness * 0.4);
+        const dampF = THREE.MathUtils.clamp(tuning.springDamping * compVel, -tuning.springStiffness * 0.4, tuning.springStiffness * 0.4);
         const totalVert = Math.max(0, springF + dampF);
         chassisBody.addForceAtPoint({ x: 0, y: totalVert, z: 0 }, { x: contactPt.x, y: contactPt.y, z: contactPt.z }, true);
       }
