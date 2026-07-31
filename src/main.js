@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import GUI from 'lil-gui';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { createScene } from './scene.js';
 import { createPhysics } from './physics.js';
 import { createTrack } from './track.js';
@@ -13,6 +14,9 @@ async function bootstrap() {
   const { scene, renderer, camera, materials } = createScene(canvas);
   const physics = await createPhysics();
   const input = createInput();
+
+  const loader = new GLTFLoader();
+  const pandaGltf = await loader.loadAsync('models/panda.glb?t=' + Date.now());
   const gui = new GUI({ title: 'Panda Racing Debug' });
   gui.close();
   const settings = { seed: 1337, regenerate: () => resetWorld(settings.seed) };
@@ -28,7 +32,7 @@ async function bootstrap() {
     if (vehicle) scene.remove(vehicle.group);
     physics.world.forEachRigidBody((body) => physics.world.removeRigidBody(body));
     track = createTrack(scene, physics, materials, seed);
-    vehicle = createVehicle(scene, physics, materials, track.start, track.tangent);
+    vehicle = createVehicle(scene, physics, track.start, track.tangent, pandaGltf.scene);
     vehicleGuiFolder = vehicle.addGui(gui);
   }
   resetWorld(settings.seed);

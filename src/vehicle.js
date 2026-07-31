@@ -1,60 +1,113 @@
 import * as THREE from 'three';
 import { syncMeshToBody } from './physics.js';
 
-export function createVehicle(scene, physics, materials, start, tangent) {
+export function createVehicle(scene, physics, start, tangent, gltfScene) {
   const group = new THREE.Group();
-  const chassis = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.05, 3.5), materials.pandaWhite);
-  chassis.position.y = 0.75;
-  chassis.castShadow = true;
-  const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.75, 0.9, 1.7), materials.glass);
-  cabin.position.set(0, 1.45, 0.25);
-  cabin.castShadow = true;
-  const bumperFront = new THREE.Mesh(new THREE.BoxGeometry(2.25, 0.35, 0.35), materials.pandaBlack);
-  bumperFront.position.set(0, 0.55, 1.9);
-  const bumperRear = new THREE.Mesh(new THREE.BoxGeometry(2.25, 0.35, 0.35), materials.pandaBlack);
-  bumperRear.position.set(0, 0.55, -1.9);
-  group.add(chassis, cabin, bumperFront, bumperRear);
 
-  chassis.material = chassis.material.clone();
-  chassis.material.transparent = true;
-  chassis.material.opacity = 0.3;
-  chassis.material.depthWrite = false;
-  cabin.material = cabin.material.clone();
-  cabin.material.transparent = true;
-  cabin.material.opacity = 0.35;
-  cabin.material.depthWrite = false;
-  bumperFront.material = bumperFront.material.clone();
-  bumperFront.material.transparent = true;
-  bumperFront.material.opacity = 0.4;
-  bumperFront.material.depthWrite = false;
-  bumperRear.material = bumperRear.material.clone();
-  bumperRear.material.transparent = true;
-  bumperRear.material.opacity = 0.4;
-  bumperRear.material.depthWrite = false;
+  const model = gltfScene.clone(true);
 
-  const axleGeo = new THREE.CylinderGeometry(0.06, 0.06, 2.36, 8);
-  const frontAxle = new THREE.Mesh(axleGeo, materials.pandaBlack);
-  frontAxle.rotation.z = Math.PI / 2;
-  frontAxle.position.set(0, 0.25, 1.12);
-  const rearAxle = new THREE.Mesh(axleGeo, materials.pandaBlack);
-  rearAxle.rotation.z = Math.PI / 2;
-  rearAxle.position.set(0, 0.25, -1.16);
-  group.add(frontAxle, rearAxle);
+  model.updateMatrixWorld();
+  const junk = [];
+  model.traverse((node) => {
+    if (!node.isMesh) return;
+    const bb = new THREE.Box3().setFromObject(node);
+    const sz = new THREE.Vector3();
+    bb.getSize(sz);
+    if ((sz.x > 8 || sz.z > 8) && Math.min(sz.x, sz.y, sz.z) < 0.005) {
+      junk.push(node);
+    }
+  });
+  junk.forEach((n) => { if (n.parent) n.parent.remove(n); });
 
-  const wheelMeshes = [];
+  const bbox = new THREE.Box3().setFromObject(model);
+  const size = new THREE.Vector3();
+  bbox.getSize(size);
+  const targetWidth = 2.2;
+  const scale = targetWidth / size.x;
+  model.scale.setScalar(scale);
+  model.position.y = -new THREE.Box3().setFromObject(model).min.y;
+
+  group.add(model);
+  group.updateMatrixWorld();
+
+  const wheelData = [];
+
+  const wheelNodes = [];
+  model.traverse((node) => {
+    if (node.name === 'Circle_7' || node.name === 'Circle.001_9') {
+      wheelNodes.push(node);
+    }
+  });
+
+  wheelNodes.forEach((node) => {
+    const worldPos = new THREE.Vector3();
+    const worldQuat = new THREE.Quaternion();
+    node.getWorldPosition(worldPos);
+    node.getWorldQuaternion(worldQuat);
+
+    const meshBbox = new THREE.Box3();
+    node.traverse((child) => { if (child.isMesh) meshBbox.expandByObject(child); });
+    const meshCenter = new THREE.Vector3();
+    meshBbox.getCenter(meshCenter);
+
+    const pivot = new THREE.Group();
+    pivot.position.copy(meshCenter);
+
+    const orientation = new THREE.Group();
+    orientation.quaternion.copy(worldQuat);
+    pivot.add(orientation);
+
+    const spinner = new THREE.Group();
+    orientation.add(spinner);
+
+    while (node.children.length > 0) {
+      spinner.attach(node.children[0]);
+    }
+
+    node.removeFromParent();
+    group.add(pivot);
+
+    wheelData.push({ pivot, spinner });
+  });
+
+  model.traverse((node) => {
+    if (!node.isMesh || !node.material) return;
+    node.castShadow = true;
+    node.receiveShadow = true;
+    const mats = Array.isArray(node.material) ? node.material : [node.material];
+    node.material = Array.isArray(node.material)
+      ? mats.map((m) => m.clone())
+      : node.material.clone();
+    const applied = Array.isArray(node.material) ? node.material : [node.material];
+    applied.forEach((m) => {
+      m.transparent = true;
+      m.opacity = 0.4;
+      m.depthWrite = false;
+    });
+  });
+
+  wheelData.forEach((wd) => {
+    wd.spinner.traverse((node) => {
+      if (!node.isMesh || !node.material) return;
+      const mats = Array.isArray(node.material) ? node.material : [node.material];
+      node.material = Array.isArray(node.material)
+        ? mats.map((m) => m.clone())
+        : node.material.clone();
+      const applied = Array.isArray(node.material) ? node.material : [node.material];
+      applied.forEach((m) => {
+        m.transparent = false;
+        m.opacity = 1;
+        m.depthWrite = true;
+      });
+    });
+  });
+
+  scene.add(group);
+
   const wheelPositions = [
     [-1.18, 0.25, 1.12], [1.18, 0.25, 1.12],
     [-1.18, 0.25, -1.16], [1.18, 0.25, -1.16]
   ];
-  wheelPositions.forEach(([x, y, z]) => {
-    const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.34, 12), materials.wheel);
-    wheel.rotation.z = Math.PI / 2;
-    wheel.position.set(x, y, z);
-    wheel.castShadow = true;
-    group.add(wheel);
-    wheelMeshes.push(wheel);
-  });
-  scene.add(group);
 
   const bodyDesc = physics.RAPIER.RigidBodyDesc.dynamic()
     .setTranslation(start.x, start.y + 1, start.z)
@@ -102,6 +155,7 @@ export function createVehicle(scene, physics, materials, start, tangent) {
   applyTuning();
 
   let currentSteer = 0;
+  let wheelSpin = 0;
 
   function update(input, dt) {
     applyTuning();
@@ -116,16 +170,18 @@ export function createVehicle(scene, physics, materials, start, tangent) {
       controller.setWheelSteering(i, i < 2 ? currentSteer : 0);
     }
     controller.updateVehicle(dt);
+
+    const vel = body.linvel();
+    const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y + vel.z * vel.z);
+    wheelSpin += speed * dt / tuning.wheelRadius;
   }
 
   function sync() {
     syncMeshToBody(group, body);
-    for (let i = 0; i < 4; i++) {
-      const transform = controller.wheelChassisConnectionPointCs(i);
-      if (transform) wheelMeshes[i].position.set(transform.x, transform.y, transform.z);
-      wheelMeshes[i].scale.setScalar(tuning.wheelRadius / 0.42);
-      if (i < 2) wheelMeshes[i].rotation.y = currentSteer;
-    }
+    wheelData.forEach((wd) => {
+      wd.pivot.rotation.y = currentSteer;
+      wd.spinner.rotation.y = wheelSpin;
+    });
   }
 
   function addGui(gui) {
