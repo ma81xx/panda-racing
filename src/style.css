@@ -1,119 +1,45 @@
-html,
-body,
-#app {
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  overflow: hidden;
-  background: #87bde8;
-  font-family: system-ui, sans-serif;
+html, body, #app {
+  width: 100%; height: 100%; margin: 0; overflow: hidden;
+  background: #87bde8; font-family: system-ui, sans-serif;
 }
+#app { display: block; }
 
-#app {
-  display: block;
+#loading {
+  position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+  background: #1a1a2e; color: #fff; font: 1.4rem system-ui, sans-serif; z-index: 100;
+  transition: opacity 0.4s;
 }
-
-.boot-error {
-  margin: 2rem;
-  color: #fff;
-  background: #5b1d1d;
-  padding: 1rem;
-  border-radius: 0.75rem;
-  white-space: pre-wrap;
+#loading.hidden { opacity: 0; pointer-events: none; }
+.spinner {
+  width: 3rem; height: 3rem; border: 0.3rem solid rgba(255,255,255,0.2);
+  border-top-color: #fff; border-radius: 50%;
+  animation: spin 0.8s linear infinite; margin-right: 1rem;
 }
+@keyframes spin { to { transform: rotate(360deg); } }
 
 .touch-controls {
-  position: fixed;
-  inset: auto 1.5rem 1.5rem 1.5rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  gap: 1.5rem;
-  pointer-events: none;
-  user-select: none;
-  touch-action: none;
-  z-index: 10;
+  position: fixed; inset: auto 1.5rem 1.5rem 1.5rem;
+  display: flex; justify-content: space-between; align-items: flex-end;
+  gap: 1.5rem; pointer-events: none; user-select: none; touch-action: none; z-index: 10;
 }
-
-.touch-controls__cluster {
-  display: grid;
-  gap: 1rem;
-  pointer-events: auto;
-}
-
-.touch-controls__cluster--steer {
-  grid-template-columns: repeat(2, 5rem);
-}
-
-.touch-controls__cluster--drive {
-  grid-template-columns: repeat(2, 5rem);
-  grid-template-areas:
-    "throttle throttle"
-    "reverse brake";
-}
-
-.touch-controls__cluster--drive [data-control='throttle'] {
-  grid-area: throttle;
-  justify-self: center;
-}
-
-.touch-controls__cluster--drive [data-control='reverse'] {
-  grid-area: reverse;
-}
-
-.touch-controls__cluster--drive [data-control='handbrake'] {
-  grid-area: brake;
-}
-
-.touch-button {
-  width: 5rem;
-  height: 5rem;
-  border: 0.18rem solid rgba(255, 255, 255, 0.85);
-  border-radius: 1.2rem;
-  color: #fff;
-  background: rgba(17, 31, 44, 0.62);
-  box-shadow: 0 0.5rem 1.1rem rgba(0, 0, 0, 0.24);
+.tc-cluster { display: grid; gap: 1rem; pointer-events: auto; }
+.tc-steer { grid-template-columns: repeat(2, 5rem); }
+.tc-drive { grid-template-columns: repeat(2, 5rem); }
+.tc-btn {
+  width: 5rem; height: 5rem; border: 0.18rem solid rgba(255,255,255,0.85);
+  border-radius: 1.2rem; color: #fff; background: rgba(17,31,44,0.62);
+  box-shadow: 0 0.5rem 1.1rem rgba(0,0,0,0.24);
   font: 800 2rem/1 system-ui, sans-serif;
-  backdrop-filter: blur(8px);
-  -webkit-tap-highlight-color: transparent;
-  touch-action: none;
+  backdrop-filter: blur(8px); -webkit-tap-highlight-color: transparent; touch-action: none;
 }
-
-.touch-button--wide {
-  font-size: 1.1rem;
+.tc-wide { font-size: 1.1rem; }
+.tc-btn:active, .tc-btn.is-pressed {
+  background: rgba(232,55,55,0.8); transform: translateY(0.08rem) scale(0.97);
 }
-
-.touch-button:active,
-.touch-button.is-pressed {
-  background: rgba(232, 55, 55, 0.8);
-  transform: translateY(0.08rem) scale(0.97);
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .touch-controls {
-    opacity: 0.72;
-  }
-}
-
+@media (hover: hover) and (pointer: fine) { .touch-controls { opacity: 0.72; } }
 @media (max-width: 640px) {
-  .touch-controls {
-    inset-inline: 0.8rem;
-    bottom: max(0.8rem, env(safe-area-inset-bottom));
-  }
-
-  .touch-controls__cluster--steer,
-  .touch-controls__cluster--drive {
-    grid-template-columns: repeat(2, 4.5rem);
-  }
-
-  .touch-button {
-    width: 4.5rem;
-    height: 4.5rem;
-    border-radius: 1rem;
-    font-size: 1.7rem;
-  }
-
-  .touch-button--wide {
-    font-size: 0.95rem;
-  }
+  .touch-controls { inset-inline: 0.8rem; bottom: max(0.8rem, env(safe-area-inset-bottom)); }
+  .tc-steer, .tc-drive { grid-template-columns: repeat(2, 4.5rem); }
+  .tc-btn { width: 4.5rem; height: 4.5rem; border-radius: 1rem; font-size: 1.7rem; }
+  .tc-wide { font-size: 0.95rem; }
 }

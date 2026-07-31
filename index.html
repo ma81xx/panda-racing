@@ -9,18 +9,19 @@
     <title>Panda Racing</title>
   </head>
   <body>
+    <div id="loading"><div class="spinner"></div> Loading...</div>
     <canvas id="app"></canvas>
     <div class="touch-controls" aria-label="Comandi macchina">
-      <div class="touch-controls__cluster touch-controls__cluster--steer">
-        <button class="touch-button" type="button" data-control="steerLeft" aria-label="Sterza a sinistra">←</button>
-        <button class="touch-button" type="button" data-control="steerRight" aria-label="Sterza a destra">→</button>
+      <div class="tc-cluster tc-steer">
+        <button class="tc-btn" type="button" data-control="steerLeft" aria-label="Sterza a sinistra">&#8592;</button>
+        <button class="tc-btn" type="button" data-control="steerRight" aria-label="Sterza a destra">&#8594;</button>
       </div>
-      <div class="touch-controls__cluster touch-controls__cluster--drive">
-        <button class="touch-button" type="button" data-control="throttle" aria-label="Accelera">↑</button>
-        <button class="touch-button" type="button" data-control="reverse" aria-label="Retromarcia o freno">↓</button>
-        <button class="touch-button touch-button--wide" type="button" data-control="handbrake" aria-label="Freno a mano">Freno</button>
+      <div class="tc-cluster tc-drive">
+        <button class="tc-btn" type="button" data-control="throttle" aria-label="Accelera">&#8593;</button>
+        <button class="tc-btn" type="button" data-control="reverse" aria-label="Retromarcia o freno">&#8595;</button>
+        <button class="tc-btn tc-wide" type="button" data-control="handbrake" aria-label="Freno a mano">Freno</button>
       </div>
     </div>
-    <script type="module" src="/src/main.js"></script>
+    <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
