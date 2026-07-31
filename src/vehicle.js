@@ -15,6 +15,32 @@ export function createVehicle(scene, physics, materials, start, tangent) {
   bumperRear.position.set(0, 0.55, -1.9);
   group.add(chassis, cabin, bumperFront, bumperRear);
 
+  chassis.material = chassis.material.clone();
+  chassis.material.transparent = true;
+  chassis.material.opacity = 0.3;
+  chassis.material.depthWrite = false;
+  cabin.material = cabin.material.clone();
+  cabin.material.transparent = true;
+  cabin.material.opacity = 0.35;
+  cabin.material.depthWrite = false;
+  bumperFront.material = bumperFront.material.clone();
+  bumperFront.material.transparent = true;
+  bumperFront.material.opacity = 0.4;
+  bumperFront.material.depthWrite = false;
+  bumperRear.material = bumperRear.material.clone();
+  bumperRear.material.transparent = true;
+  bumperRear.material.opacity = 0.4;
+  bumperRear.material.depthWrite = false;
+
+  const axleGeo = new THREE.CylinderGeometry(0.06, 0.06, 2.36, 8);
+  const frontAxle = new THREE.Mesh(axleGeo, materials.pandaBlack);
+  frontAxle.rotation.z = Math.PI / 2;
+  frontAxle.position.set(0, 0.25, 1.12);
+  const rearAxle = new THREE.Mesh(axleGeo, materials.pandaBlack);
+  rearAxle.rotation.z = Math.PI / 2;
+  rearAxle.position.set(0, 0.25, -1.16);
+  group.add(frontAxle, rearAxle);
+
   const wheelMeshes = [];
   const wheelPositions = [
     [-1.18, 0.25, 1.12], [1.18, 0.25, 1.12],
@@ -75,15 +101,19 @@ export function createVehicle(scene, physics, materials, start, tangent) {
   }
   applyTuning();
 
+  let currentSteer = 0;
+
   function update(input, dt) {
     applyTuning();
     const engine = input.throttle ? tuning.engineForce : input.reverse ? -0.55 * tuning.engineForce : 0;
-    const steer = input.steer * tuning.maxSteer;
+    const targetSteer = input.steer * tuning.maxSteer;
+    const steerSpeed = 12;
+    currentSteer += (targetSteer - currentSteer) * Math.min(dt * steerSpeed, 1);
     const brake = input.braking && !input.throttle ? tuning.brakeForce : 0;
     for (let i = 0; i < 4; i++) {
       controller.setWheelEngineForce(i, i < 2 ? engine : engine * 0.25);
       controller.setWheelBrake(i, input.handbrake && i >= 2 ? tuning.handbrakeForce : brake);
-      controller.setWheelSteering(i, i < 2 ? -steer : 0);
+      controller.setWheelSteering(i, i < 2 ? currentSteer : 0);
     }
     controller.updateVehicle(dt);
   }
@@ -94,6 +124,7 @@ export function createVehicle(scene, physics, materials, start, tangent) {
       const transform = controller.wheelChassisConnectionPointCs(i);
       if (transform) wheelMeshes[i].position.set(transform.x, transform.y, transform.z);
       wheelMeshes[i].scale.setScalar(tuning.wheelRadius / 0.42);
+      if (i < 2) wheelMeshes[i].rotation.y = currentSteer;
     }
   }
 
@@ -111,6 +142,7 @@ export function createVehicle(scene, physics, materials, start, tangent) {
     f.add(tuning, 'maxSteer', 0.1, 1.1, 0.01).name('sterzata');
     f.add(tuning, 'brakeForce', 0, 90, 1).name('freno');
     f.add(tuning, 'handbrakeForce', 0, 120, 1).name('freno a mano');
+    return f;
   }
 
   return { group, body, controller, tuning, update, sync, addGui };

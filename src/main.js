@@ -14,19 +14,22 @@ async function bootstrap() {
   const physics = await createPhysics();
   const input = createInput();
   const gui = new GUI({ title: 'Panda Racing Debug' });
+  gui.close();
   const settings = { seed: 1337, regenerate: () => resetWorld(settings.seed) };
   gui.add(settings, 'seed', 1, 999999, 1);
   gui.add(settings, 'regenerate').name('Rigenera tracciato');
 
   let track;
   let vehicle;
+  let vehicleGuiFolder;
   function resetWorld(seed) {
+    if (vehicleGuiFolder) { vehicleGuiFolder.destroy(); vehicleGuiFolder = null; }
     if (track) [track.road, track.ground].forEach((obj) => scene.remove(obj));
     if (vehicle) scene.remove(vehicle.group);
     physics.world.forEachRigidBody((body) => physics.world.removeRigidBody(body));
     track = createTrack(scene, physics, materials, seed);
     vehicle = createVehicle(scene, physics, materials, track.start, track.tangent);
-    vehicle.addGui(gui);
+    vehicleGuiFolder = vehicle.addGui(gui);
   }
   resetWorld(settings.seed);
 
