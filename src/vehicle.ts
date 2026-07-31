@@ -176,7 +176,7 @@ export function createVehicle(
 
   const yaw = Math.atan2(tangent.x, tangent.z);
   const bodyDesc = physics.RAPIER.RigidBodyDesc.dynamic()
-    .setTranslation(start.x, start.y + 1.5, start.z).setCanSleep(false);
+    .setTranslation(start.x, start.y + 1.0, start.z).setCanSleep(false);
   bodyDesc.setRotation({ x: 0, y: Math.sin(yaw / 2), z: 0, w: Math.cos(yaw / 2) });
   const chassisBody = physics.world.createRigidBody(bodyDesc);
   physics.world.createCollider(
