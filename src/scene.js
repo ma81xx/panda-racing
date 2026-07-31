@@ -76,7 +76,7 @@ export function createScene(canvas) {
   const roadTexture = createRoadTexture();
 
   const materials = {
-    road: new THREE.MeshStandardMaterial({ map: roadTexture, roughness: 0.85 }),
+    road: new THREE.MeshStandardMaterial({ map: roadTexture, roughness: 0.85, side: THREE.DoubleSide }),
     shoulder: new THREE.MeshStandardMaterial({ color: 0x8a7448, roughness: 1, flatShading: true }),
     grass: new THREE.MeshStandardMaterial({ color: 0x5f9f41, roughness: 1, flatShading: true }),
     pandaWhite: new THREE.MeshStandardMaterial({ color: 0xf4eee4, roughness: 0.7, flatShading: true }),
