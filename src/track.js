@@ -194,9 +194,11 @@ export function createTrack(scene, physics, materials, seed = 1337) {
   const body = physics.world.createRigidBody(physics.RAPIER.RigidBodyDesc.fixed());
   physics.world.createCollider(physics.RAPIER.ColliderDesc.trimesh(vertices, indices), body);
 
+  const roadBox = new THREE.Box3().setFromBufferAttribute(roadGeometry.attributes.position);
+  const groundTopY = roadBox.min.y - 1.5;
   const groundBody = physics.world.createRigidBody(physics.RAPIER.RigidBodyDesc.fixed());
   physics.world.createCollider(
-    physics.RAPIER.ColliderDesc.cuboid(160, 1, 160).setTranslation(0, -4.2, 0),
+    physics.RAPIER.ColliderDesc.cuboid(160, 1, 160).setTranslation(0, groundTopY - 1, 0),
     groundBody
   );
 
