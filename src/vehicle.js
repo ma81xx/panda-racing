@@ -25,7 +25,7 @@ export function createVehicle(scene, physics, start, tangent, gltfScene) {
   const targetWidth = 2.2;
   const scale = targetWidth / size.x;
   model.scale.setScalar(scale);
-  model.position.y = -new THREE.Box3().setFromObject(model).min.y;
+  model.position.y = -(bbox.min.y + bbox.max.y) / 2;
 
   group.add(model);
   group.updateMatrixWorld();
@@ -71,35 +71,9 @@ export function createVehicle(scene, physics, start, tangent, gltfScene) {
   });
 
   model.traverse((node) => {
-    if (!node.isMesh || !node.material) return;
+    if (!node.isMesh) return;
     node.castShadow = true;
     node.receiveShadow = true;
-    const mats = Array.isArray(node.material) ? node.material : [node.material];
-    node.material = Array.isArray(node.material)
-      ? mats.map((m) => m.clone())
-      : node.material.clone();
-    const applied = Array.isArray(node.material) ? node.material : [node.material];
-    applied.forEach((m) => {
-      m.transparent = true;
-      m.opacity = 0.4;
-      m.depthWrite = false;
-    });
-  });
-
-  wheelData.forEach((wd) => {
-    wd.spinner.traverse((node) => {
-      if (!node.isMesh || !node.material) return;
-      const mats = Array.isArray(node.material) ? node.material : [node.material];
-      node.material = Array.isArray(node.material)
-        ? mats.map((m) => m.clone())
-        : node.material.clone();
-      const applied = Array.isArray(node.material) ? node.material : [node.material];
-      applied.forEach((m) => {
-        m.transparent = false;
-        m.opacity = 1;
-        m.depthWrite = true;
-      });
-    });
   });
 
   scene.add(group);
@@ -110,7 +84,7 @@ export function createVehicle(scene, physics, start, tangent, gltfScene) {
   ];
 
   const bodyDesc = physics.RAPIER.RigidBodyDesc.dynamic()
-    .setTranslation(start.x, start.y + 1, start.z)
+    .setTranslation(start.x, start.y + 0.55, start.z)
     .setCanSleep(false);
   const yaw = Math.atan2(tangent.x, tangent.z);
   bodyDesc.setRotation({ x: 0, y: Math.sin(yaw / 2), z: 0, w: Math.cos(yaw / 2) });

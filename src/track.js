@@ -10,6 +10,52 @@ function mulberry32(seed) {
   };
 }
 
+function createAsphaltTexture() {
+  const w = 1024;
+  const h = 128;
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+
+  const imageData = ctx.createImageData(w, h);
+  const data = imageData.data;
+  for (let i = 0; i < w * h; i++) {
+    const base = 55 + Math.floor(Math.random() * 20);
+    data[i * 4] = base;
+    data[i * 4 + 1] = base;
+    data[i * 4 + 2] = base;
+    data[i * 4 + 3] = 255;
+  }
+  ctx.putImageData(imageData, 0, 0);
+
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 13;
+  ctx.beginPath();
+  ctx.moveTo(50, 0);
+  ctx.lineTo(50, h);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(w - 50, 0);
+  ctx.lineTo(w - 50, h);
+  ctx.stroke();
+
+  ctx.lineWidth = 10.4;
+  ctx.strokeStyle = '#ffffff';
+  ctx.setLineDash([40, 36]);
+  ctx.beginPath();
+  ctx.moveTo(w / 2, 0);
+  ctx.lineTo(w / 2, h);
+  ctx.stroke();
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = THREE.ClampToEdgeWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(1, 1);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
 function buildRoadGeometry(curve, width, samples) {
   const positions = [];
   const uvs = [];
@@ -50,17 +96,26 @@ export function createTrack(scene, physics, materials, seed = 1337) {
   }
   const jumpIndexes = [5, 14, 22];
   jumpIndexes.forEach((idx) => {
-    points[idx].y += 8;      // take-off ramp crest
-    points[(idx + 1) % total].y += 13; // airy gap apex
-    points[(idx + 2) % total].y += 7;  // landing ramp
+    points[idx].y += 8;
+    points[(idx + 1) % total].y += 13;
+    points[(idx + 2) % total].y += 7;
   });
 
   const curve = new THREE.CatmullRomCurve3(points, true, 'catmullrom', 0.35);
-  const roadGeometry = buildRoadGeometry(curve, 10, 520);
-  const road = new THREE.Mesh(roadGeometry, materials.road);
+  const roadWidth = 12;
+  const roadGeometry = buildRoadGeometry(curve, roadWidth, 520);
+
+  const asphaltTex = createAsphaltTexture();
+  const roadMat = new THREE.MeshStandardMaterial({ map: asphaltTex, roughness: 0.85, metalness: 0.05 });
+  const road = new THREE.Mesh(roadGeometry, roadMat);
   road.receiveShadow = true;
   road.castShadow = true;
   scene.add(road);
+
+  const underMat = new THREE.MeshStandardMaterial({ color: 0x3a3d42, roughness: 1, side: THREE.BackSide });
+  const underside = new THREE.Mesh(roadGeometry, underMat);
+  underside.position.y = -0.05;
+  scene.add(underside);
 
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(260, 260, 36, 36), materials.grass);
   ground.rotation.x = -Math.PI / 2;
