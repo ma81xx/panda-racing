@@ -84,6 +84,59 @@ function buildRoadGeometry(curve, width, samples) {
   return geometry;
 }
 
+function buildRoadColliderGeometry(curve, width, samples, thickness) {
+  const positions = [];
+  const indices = [];
+  const up = new THREE.Vector3(0, 1, 0);
+
+  const top = [];
+  const bottom = [];
+  for (let i = 0; i <= samples; i++) {
+    const t = i / samples;
+    const center = curve.getPointAt(t);
+    const tangent = curve.getTangentAt(t).normalize();
+    const side = new THREE.Vector3().crossVectors(up, tangent).normalize();
+    const crown = Math.sin(t * Math.PI * 2) * 0.04;
+    const left = center.clone().addScaledVector(side, -width / 2); left.y += crown;
+    const right = center.clone().addScaledVector(side, width / 2); right.y += crown;
+    top.push(left, right);
+    bottom.push(
+      left.clone().add(new THREE.Vector3(0, -thickness, 0)),
+      right.clone().add(new THREE.Vector3(0, -thickness, 0))
+    );
+  }
+
+  const n = samples;
+  for (let i = 0; i < n; i++) {
+    const a = i * 2;
+    indices.push(a, a + 2, a + 1, a + 1, a + 2, a + 3);
+    const b = (samples + 1) * 2 + a;
+    indices.push(b, b + 2, b + 1, b + 1, b + 2, b + 3);
+    indices.push(a, b, a + 2);
+    indices.push(a + 2, b, b + 2);
+    indices.push(a + 1, b + 1, a + 3);
+    indices.push(a + 3, b + 1, b + 3);
+  }
+
+  const allPositions = new Float32Array((top.length + bottom.length) * 3);
+  top.forEach((v, idx) => {
+    allPositions[idx * 3] = v.x;
+    allPositions[idx * 3 + 1] = v.y;
+    allPositions[idx * 3 + 2] = v.z;
+  });
+  bottom.forEach((v, idx) => {
+    const off = top.length * 3 + idx * 3;
+    allPositions[off] = v.x;
+    allPositions[off + 1] = v.y;
+    allPositions[off + 2] = v.z;
+  });
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(allPositions, 3));
+  geometry.setIndex(indices);
+  return geometry;
+}
+
 export function createTrack(scene, physics, materials, seed = 1337) {
   const random = mulberry32(seed);
   const points = [];
@@ -135,10 +188,17 @@ export function createTrack(scene, physics, materials, seed = 1337) {
     scene.add(cone);
   }
 
-  const vertices = new Float32Array(roadGeometry.attributes.position.array);
-  const indices = new Uint32Array(roadGeometry.index.array);
+  const colliderGeometry = buildRoadColliderGeometry(curve, roadWidth, 520, 0.6);
+  const vertices = new Float32Array(colliderGeometry.attributes.position.array);
+  const indices = new Uint32Array(colliderGeometry.index.array);
   const body = physics.world.createRigidBody(physics.RAPIER.RigidBodyDesc.fixed());
   physics.world.createCollider(physics.RAPIER.ColliderDesc.trimesh(vertices, indices), body);
+
+  const groundBody = physics.world.createRigidBody(physics.RAPIER.RigidBodyDesc.fixed());
+  physics.world.createCollider(
+    physics.RAPIER.ColliderDesc.cuboid(160, 1, 160).setTranslation(0, -4.2, 0),
+    groundBody
+  );
 
   return { road, ground, curve, start: curve.getPointAt(0), tangent: curve.getTangentAt(0), body };
 }
