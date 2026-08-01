@@ -85,21 +85,24 @@ export function createVehicle(scene, physics, start, tangent, gltfScene) {
 
   const bodyDesc = physics.RAPIER.RigidBodyDesc.dynamic()
     .setTranslation(start.x, start.y + 0.55, start.z)
-    .setCanSleep(false);
+    .setCanSleep(false)
+    .setCcdEnabled(true)
+    .setLinearDamping(0.3)
+    .setAngularDamping(0.4);
   const yaw = Math.atan2(tangent.x, tangent.z);
   bodyDesc.setRotation({ x: 0, y: Math.sin(yaw / 2), z: 0, w: Math.cos(yaw / 2) });
   const body = physics.world.createRigidBody(bodyDesc);
-  physics.world.createCollider(physics.RAPIER.ColliderDesc.cuboid(1.1, 0.55, 1.75).setDensity(420), body);
+  physics.world.createCollider(physics.RAPIER.ColliderDesc.cuboid(1.1, 0.55, 1.75).setDensity(100), body);
 
   const controller = physics.world.createVehicleController(body);
   controller.indexUpAxis = 1;
   controller.setIndexForwardAxis = 2;
   const tuning = {
     suspensionRestLength: 0.48,
-    suspensionStiffness: 28,
+    suspensionStiffness: 24,
     maxSuspensionTravel: 0.42,
-    dampingCompression: 3.6,
-    dampingRelaxation: 4.8,
+    dampingCompression: 6,
+    dampingRelaxation: 8,
     frictionSlip: 1.45,
     wheelRadius: 0.42,
     frontGrip: 1.35,
@@ -114,7 +117,15 @@ export function createVehicle(scene, physics, start, tangent, gltfScene) {
   const axle = { x: -1, y: 0, z: 0 };
   wheelPositions.forEach(([x, y, z]) => controller.addWheel({ x, y, z }, down, axle, tuning.suspensionRestLength, tuning.wheelRadius));
 
-  function applyTuning() {
+  let lastTuningKey = '';
+  function syncTuning() {
+    const key = [
+      tuning.suspensionRestLength, tuning.suspensionStiffness, tuning.maxSuspensionTravel,
+      tuning.dampingCompression, tuning.dampingRelaxation, tuning.frictionSlip,
+      tuning.wheelRadius, tuning.frontGrip, tuning.rearGrip
+    ].join(',');
+    if (key === lastTuningKey) return;
+    lastTuningKey = key;
     for (let i = 0; i < 4; i++) {
       controller.setWheelSuspensionRestLength(i, tuning.suspensionRestLength);
       controller.setWheelSuspensionStiffness(i, tuning.suspensionStiffness);
@@ -126,13 +137,13 @@ export function createVehicle(scene, physics, start, tangent, gltfScene) {
       controller.setWheelRadius(i, tuning.wheelRadius);
     }
   }
-  applyTuning();
+  syncTuning();
 
   let currentSteer = 0;
   let wheelSpin = 0;
 
   function update(input, dt) {
-    applyTuning();
+    syncTuning();
     const engine = input.throttle ? tuning.engineForce : input.reverse ? -0.55 * tuning.engineForce : 0;
     const targetSteer = input.steer * tuning.maxSteer;
     const steerSpeed = 12;

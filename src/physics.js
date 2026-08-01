@@ -1,12 +1,15 @@
 import RAPIER from '@dimforge/rapier3d-compat';
 import * as THREE from 'three';
 
-const FIXED_DT = 1 / 60;
+const FIXED_DT = 1 / 120;
 
 export async function createPhysics() {
   await RAPIER.init();
-  const world = new RAPIER.World({ x: 0, y: -9.81, z: 0 });
-  world.timestep = FIXED_DT;
+  const params = new RAPIER.IntegrationParameters();
+  params.dt = FIXED_DT;
+  params.numSolverIterations = 12;
+  params.numInternalPgsIterations = 2;
+  const world = new RAPIER.World({ x: 0, y: -9.81, z: 0 }, params.raw);
   let accumulator = 0;
 
   function step(delta, beforeStep = () => {}) {
