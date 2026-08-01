@@ -134,7 +134,7 @@ function buildRoadGeometry(curve, width, samples, crossCount) {
       const b = a + 1;
       const c = a + crossCount;
       const d = c + 1;
-      indices.push(a, b, c, b, d, c);
+      indices.push(a, c, b, b, c, d);
     }
   }
   const geometry = new THREE.BufferGeometry();
@@ -164,12 +164,12 @@ function buildRoadColliderGeometry(curve, width, samples, crossCount, thickness)
       const b = a + 1;
       const c = a + crossCount;
       const d = c + 1;
-      indices.push(a, b, c, b, d, c);
+      indices.push(a, c, b, b, c, d);
       const ab = total + a;
       const bb = ab + 1;
       const cb = total + c;
       const db = cb + 1;
-      indices.push(ab, cb, bb, bb, cb, db);
+      indices.push(ab, bb, cb, bb, db, cb);
     }
   }
   for (const k of [0, crossCount - 1]) {
