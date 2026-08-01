@@ -207,8 +207,12 @@ function terrainHeightAt(curve, x, z, baseY, samples = 520) {
     const d = Math.sqrt(dx * dx + dz * dz);
     if (d < bestD) { bestD = d; bestY = p.y; }
   }
-  if (bestD <= ROAD_HALF) return bestY;
-  return bestY + (baseY - bestY) * smoothstep(ROAD_HALF, ROAD_HALF + SHOULDER, bestD);
+  if (bestD < ROAD_HALF) return bestY - 0.5;
+  if (bestD < ROAD_HALF + 2) {
+    const s = (bestD - ROAD_HALF) / 2;
+    return bestY - 0.5 + s * 0.5;
+  }
+  return bestY + (baseY - bestY) * smoothstep(ROAD_HALF + 2, ROAD_HALF + 2 + SHOULDER, bestD);
 }
 
 function buildTerrain(curve, baseY) {
@@ -346,9 +350,19 @@ export function createTrack(scene, physics, materials, seed = 1337) {
   const baseY = roadBox.min.y - 2;
 
   const terrainMat = new THREE.MeshStandardMaterial({ color: 0x5f9f41, roughness: 1, flatShading: true });
-  const terrain = new THREE.Mesh(buildTerrain(curve, baseY), terrainMat);
+  const terrainGeometry = buildTerrain(curve, baseY);
+  const terrain = new THREE.Mesh(terrainGeometry, terrainMat);
   terrain.receiveShadow = true;
   trackGroup.add(terrain);
+
+  const terrainBody = physics.world.createRigidBody(physics.RAPIER.RigidBodyDesc.fixed());
+  physics.world.createCollider(
+    physics.RAPIER.ColliderDesc.trimesh(
+      new Float32Array(terrainGeometry.attributes.position.array),
+      new Uint32Array(terrainGeometry.index.array)
+    ),
+    terrainBody
+  );
 
   const plantBuilders = [createPine, createRoundTree, createBush];
   const plantCount = 320;
