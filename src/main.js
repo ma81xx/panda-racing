@@ -28,7 +28,7 @@ async function bootstrap() {
   let vehicleGuiFolder;
   function resetWorld(seed) {
     if (vehicleGuiFolder) { vehicleGuiFolder.destroy(); vehicleGuiFolder = null; }
-    if (track) [track.road, track.ground].forEach((obj) => scene.remove(obj));
+    if (track) scene.remove(track.group);
     if (vehicle) scene.remove(vehicle.group);
     physics.world.forEachRigidBody((body) => physics.world.removeRigidBody(body));
     track = createTrack(scene, physics, materials, seed);
