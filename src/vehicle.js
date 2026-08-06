@@ -93,6 +93,9 @@ export function createVehicle(scene, physics, start, tangent, gltfScene) {
   bodyDesc.setRotation({ x: 0, y: Math.sin(yaw / 2), z: 0, w: Math.cos(yaw / 2) });
   const body = physics.world.createRigidBody(bodyDesc);
   physics.world.createCollider(physics.RAPIER.ColliderDesc.cuboid(1.1, 0.55, 1.75).setDensity(100), body);
+  const baseMass = body.mass();
+  const baseInertia = body.principalAngularInertia();
+  const identityQuat = { x: 0, y: 0, z: 0, w: 1 };
 
   const controller = physics.world.createVehicleController(body);
   controller.indexUpAxis = 1;
@@ -110,7 +113,12 @@ export function createVehicle(scene, physics, start, tangent, gltfScene) {
     maxSteer: 0.55,
     brakeForce: 28,
     handbrakeForce: 55,
-    engineForce: 8000
+    engineForce: 8000,
+    comY: -0.15,
+    comZ: 0.1,
+    antiRollFront: 0.35,
+    antiRollRear: 0.3,
+    loadSensitivity: 0.25
   };
 
   const down = { x: 0, y: -1, z: 0 };
@@ -139,11 +147,76 @@ export function createVehicle(scene, physics, start, tangent, gltfScene) {
   }
   syncTuning();
 
+  let lastComKey = '';
+  function applyCom() {
+    const key = [tuning.comY, tuning.comZ].join(',');
+    if (key === lastComKey) return;
+    lastComKey = key;
+    body.setAdditionalMassProperties(
+      baseMass,
+      { x: 0, y: tuning.comY, z: tuning.comZ },
+      baseInertia,
+      identityQuat,
+      true
+    );
+  }
+  applyCom();
+
+  const AXLES = [
+    [0, 1, 'antiRollFront'],
+    [2, 3, 'antiRollRear']
+  ];
+  const tmpUp = new THREE.Vector3();
+  const tmpQuat = new THREE.Quaternion();
+
+  function applyAntiRoll() {
+    const q = body.rotation();
+    tmpQuat.set(q.x, q.y, q.z, q.w);
+    tmpUp.set(0, 1, 0).applyQuaternion(tmpQuat);
+    for (let a = 0; a < AXLES.length; a++) {
+      const [l, r, key] = AXLES[a];
+      const rate = tuning[key];
+      if (!rate) continue;
+      if (!controller.wheelIsInContact(l) || !controller.wheelIsInContact(r)) continue;
+      const transfer = (wheelLoads[l] - wheelLoads[r]) * rate;
+      if (!transfer) continue;
+      const pl = controller.wheelHardPoint(l);
+      const pr = controller.wheelHardPoint(r);
+      if (!pl || !pr) continue;
+      body.addForceAtPoint(
+        { x: tmpUp.x * transfer, y: tmpUp.y * transfer, z: tmpUp.z * transfer },
+        pl,
+        true
+      );
+      body.addForceAtPoint(
+        { x: tmpUp.x * -transfer, y: tmpUp.y * -transfer, z: tmpUp.z * -transfer },
+        pr,
+        true
+      );
+    }
+  }
+
   let currentSteer = 0;
   let wheelSpin = 0;
+  const wheelLoads = [0, 0, 0, 0];
 
   function update(input, dt) {
     syncTuning();
+    applyCom();
+
+    if (tuning.loadSensitivity > 0) {
+      const avg = [0, 0];
+      for (let i = 0; i < 4; i++) avg[i >> 1] += wheelLoads[i];
+      avg[0] /= 2;
+      avg[1] /= 2;
+      for (let i = 0; i < 4; i++) {
+        if (avg[i >> 1] <= 0) continue;
+        const base = tuning.frictionSlip * (i < 2 ? tuning.frontGrip : tuning.rearGrip);
+        const ratio = wheelLoads[i] / avg[i >> 1];
+        controller.setWheelFrictionSlip(i, base * (1 - tuning.loadSensitivity * (ratio - 1)));
+      }
+    }
+
     const engine = input.throttle ? tuning.engineForce : input.reverse ? -0.55 * tuning.engineForce : 0;
     const targetSteer = input.steer * tuning.maxSteer;
     const steerSpeed = 12;
@@ -155,6 +228,13 @@ export function createVehicle(scene, physics, start, tangent, gltfScene) {
       controller.setWheelSteering(i, i < 2 ? currentSteer : 0);
     }
     controller.updateVehicle(dt);
+
+    for (let i = 0; i < 4; i++) {
+      const f = controller.wheelSuspensionForce(i);
+      wheelLoads[i] = f === null ? 0 : f;
+    }
+
+    applyAntiRoll();
 
     const vel = body.linvel();
     const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y + vel.z * vel.z);
@@ -183,6 +263,11 @@ export function createVehicle(scene, physics, start, tangent, gltfScene) {
     f.add(tuning, 'maxSteer', 0.1, 1.1, 0.01).name('sterzata');
     f.add(tuning, 'brakeForce', 0, 90, 1).name('freno');
     f.add(tuning, 'handbrakeForce', 0, 120, 1).name('freno a mano');
+    f.add(tuning, 'comY', -0.4, 0.3, 0.01).name('centro massa Y');
+    f.add(tuning, 'comZ', -0.3, 0.3, 0.01).name('centro massa Z');
+    f.add(tuning, 'antiRollFront', 0, 1, 0.01).name('barra ant.');
+    f.add(tuning, 'antiRollRear', 0, 1, 0.01).name('barra post.');
+    f.add(tuning, 'loadSensitivity', 0, 0.8, 0.01).name('grip per carico');
     return f;
   }
 
