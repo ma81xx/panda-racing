@@ -81,7 +81,7 @@ async function bootstrap() {
     const yawRate = angvel.x * tmpUp.x + angvel.y * tmpUp.y + angvel.z * tmpUp.z;
     const latAccel = forwardSpeed * yawRate;
 
-    const desiredOffset = new THREE.Vector3(0, 5.5, -10).applyQuaternion(car.quaternion);
+    const desiredOffset = new THREE.Vector3(0, 4.5, -8).applyQuaternion(car.quaternion);
     const desiredPosition = car.position.clone().add(desiredOffset);
     const desiredTarget = car.position.clone().add(new THREE.Vector3(0, 1.2, 0));
     const alpha = 1 - Math.exp(-delta * cam.lag);
@@ -124,7 +124,7 @@ async function bootstrap() {
     renderer.render(scene, camera);
   }
 
-  chasePosition.copy(vehicle.group.position).add(new THREE.Vector3(0, 6, -12));
+  chasePosition.copy(vehicle.group.position).add(new THREE.Vector3(0, 5, -9));
   chaseTarget.copy(vehicle.group.position);
   animate();
 }

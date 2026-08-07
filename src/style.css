@@ -24,7 +24,10 @@ body,
 
 .touch-controls {
   position: fixed;
-  inset: auto 1rem 1rem 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 1rem;
+  width: min(88vw, 34rem);
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
@@ -97,23 +100,23 @@ body,
 
 @media (max-width: 640px) {
   .touch-controls {
-    inset-inline: 0.6rem;
     bottom: max(0.6rem, env(safe-area-inset-bottom));
+    width: min(88vw, 30rem);
   }
 
   .touch-controls__cluster--steer,
   .touch-controls__cluster--drive {
-    grid-template-columns: repeat(2, 3.7rem);
+    grid-template-columns: repeat(2, 4.5rem);
   }
 
   .touch-button {
-    width: 3.7rem;
-    height: 3.7rem;
-    border-radius: 1rem;
-    font-size: 1.55rem;
+    width: 4.5rem;
+    height: 4.5rem;
+    border-radius: 1.1rem;
+    font-size: 1.7rem;
   }
 
   .touch-button--wide {
-    font-size: 0.88rem;
+    font-size: 0.95rem;
   }
 }
