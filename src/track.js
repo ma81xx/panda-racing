@@ -93,11 +93,10 @@ function createDirtTexture() {
 }
 
 const CROSS_COUNT = 7;
-const DIP_DEPTH = 0.12;
+const DIP_DEPTH = 0.05;
 
 function irregularOffset(i, k) {
-  const x = i * 0.37 + k * 1.13;
-  return Math.sin(x) * 0.045 + Math.sin(x * 2.3 + 1.7) * 0.02;
+  return 0;
 }
 
 function buildRoadPositions(curve, width, samples, crossCount) {
@@ -190,12 +189,6 @@ function buildRoadColliderGeometry(curve, width, samples, crossCount, thickness)
 }
 
 const ROAD_HALF = 6;
-const SHOULDER = 16;
-
-function smoothstep(a, b, x) {
-  const t = Math.max(0, Math.min(1, (x - a) / (b - a)));
-  return t * t * (3 - 2 * t);
-}
 
 function terrainHeightAt(curve, x, z, baseY, samples = 520) {
   let bestD = Infinity;
@@ -207,12 +200,8 @@ function terrainHeightAt(curve, x, z, baseY, samples = 520) {
     const d = Math.sqrt(dx * dx + dz * dz);
     if (d < bestD) { bestD = d; bestY = p.y; }
   }
-  if (bestD < ROAD_HALF) return bestY - 0.5;
-  if (bestD < ROAD_HALF + 2) {
-    const s = (bestD - ROAD_HALF) / 2;
-    return bestY - 0.5 + s * 0.5;
-  }
-  return bestY + (baseY - bestY) * smoothstep(ROAD_HALF + 2, ROAD_HALF + 2 + SHOULDER, bestD);
+  if (bestD < ROAD_HALF) return bestY - 0.25;
+  return bestY;
 }
 
 function buildTerrain(curve, baseY) {
@@ -386,7 +375,7 @@ export function createTrack(scene, physics, materials, seed = 1337) {
 
   scene.add(trackGroup);
 
-  const colliderGeometry = buildRoadColliderGeometry(curve, roadWidth, samples, CROSS_COUNT, 0.4);
+  const colliderGeometry = buildRoadColliderGeometry(curve, roadWidth, samples, CROSS_COUNT, 0.15);
   const vertices = new Float32Array(colliderGeometry.attributes.position.array);
   const indices = new Uint32Array(colliderGeometry.index.array);
   const body = physics.world.createRigidBody(physics.RAPIER.RigidBodyDesc.fixed());

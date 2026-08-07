@@ -92,9 +92,9 @@ export function createVehicle(scene, physics, start, tangent, gltfScene) {
   const yaw = Math.atan2(tangent.x, tangent.z);
   bodyDesc.setRotation({ x: 0, y: Math.sin(yaw / 2), z: 0, w: Math.cos(yaw / 2) });
   const body = physics.world.createRigidBody(bodyDesc);
-  physics.world.createCollider(physics.RAPIER.ColliderDesc.cuboid(1.1, 0.55, 1.75).setDensity(100), body);
+  physics.world.createCollider(physics.RAPIER.ColliderDesc.roundCuboid(1.1, 0.55, 1.75, 0.15).setDensity(100).setTranslation(0, 0.25, 0), body);
   const baseMass = body.mass();
-  const baseInertia = body.principalAngularInertia();
+  const baseInertia = body.principalInertia();
   const identityQuat = { x: 0, y: 0, z: 0, w: 1 };
 
   const controller = physics.world.createVehicleController(body);
@@ -118,6 +118,8 @@ export function createVehicle(scene, physics, start, tangent, gltfScene) {
     comZ: 0.1,
     antiRollFront: 0.35,
     antiRollRear: 0.3,
+    antiRollMax: 3500,
+    antiRollDamp: 800,
     loadSensitivity: 0.25
   };
 
@@ -167,18 +169,30 @@ export function createVehicle(scene, physics, start, tangent, gltfScene) {
     [2, 3, 'antiRollRear']
   ];
   const tmpUp = new THREE.Vector3();
+  const tmpFwd = new THREE.Vector3();
   const tmpQuat = new THREE.Quaternion();
+  const rollLoads = [0, 0, 0, 0];
+  let tmpUpDot = 1;
 
   function applyAntiRoll() {
     const q = body.rotation();
     tmpQuat.set(q.x, q.y, q.z, q.w);
     tmpUp.set(0, 1, 0).applyQuaternion(tmpQuat);
+    tmpFwd.set(0, 0, 1).applyQuaternion(tmpQuat);
+    for (let i = 0; i < 4; i++) rollLoads[i] += (wheelLoads[i] - rollLoads[i]) * 0.3;
+
+    const ang = body.angvel();
+    const rollRate = ang.x * tmpFwd.x + ang.y * tmpFwd.y + ang.z * tmpFwd.z;
+    const damp = -tuning.antiRollDamp * rollRate;
+    body.addTorque({ x: tmpFwd.x * damp, y: tmpFwd.y * damp, z: tmpFwd.z * damp }, true);
+
+    if (tmpUp.y < 0.5) return;
     for (let a = 0; a < AXLES.length; a++) {
       const [l, r, key] = AXLES[a];
       const rate = tuning[key];
       if (!rate) continue;
       if (!controller.wheelIsInContact(l) || !controller.wheelIsInContact(r)) continue;
-      const transfer = (wheelLoads[l] - wheelLoads[r]) * rate;
+      const transfer = Math.max(-tuning.antiRollMax, Math.min(tuning.antiRollMax, (rollLoads[l] - rollLoads[r]) * rate));
       if (!transfer) continue;
       const pl = controller.wheelHardPoint(l);
       const pr = controller.wheelHardPoint(r);
@@ -204,7 +218,12 @@ export function createVehicle(scene, physics, start, tangent, gltfScene) {
     syncTuning();
     applyCom();
 
-    if (tuning.loadSensitivity > 0) {
+    const upQ = body.rotation();
+    tmpQuat.set(upQ.x, upQ.y, upQ.z, upQ.w);
+    tmpUp.set(0, 1, 0).applyQuaternion(tmpQuat);
+    tmpUpDot = tmpUp.y;
+
+    if (tuning.loadSensitivity > 0 && tmpUpDot > 0.5) {
       const avg = [0, 0];
       for (let i = 0; i < 4; i++) avg[i >> 1] += wheelLoads[i];
       avg[0] /= 2;
@@ -267,6 +286,8 @@ export function createVehicle(scene, physics, start, tangent, gltfScene) {
     f.add(tuning, 'comZ', -0.3, 0.3, 0.01).name('centro massa Z');
     f.add(tuning, 'antiRollFront', 0, 1, 0.01).name('barra ant.');
     f.add(tuning, 'antiRollRear', 0, 1, 0.01).name('barra post.');
+    f.add(tuning, 'antiRollMax', 500, 8000, 100).name('antirollio max');
+    f.add(tuning, 'antiRollDamp', 0, 4000, 50).name('smorzamento rollio');
     f.add(tuning, 'loadSensitivity', 0, 0.8, 0.01).name('grip per carico');
     return f;
   }

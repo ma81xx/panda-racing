@@ -23,6 +23,26 @@ async function bootstrap() {
   gui.add(settings, 'seed', 1, 999999, 1);
   gui.add(settings, 'regenerate').name('Rigenera tracciato');
 
+  const cam = {
+    lag: 3.0,
+    baseFov: 60,
+    fovBoost: 0.6,
+    maxFov: 82,
+    leanStrength: 0.004,
+    leanMax: 0.09,
+    shakeStrength: 0.012,
+    shakeMax: 0.03
+  };
+  const camGui = gui.addFolder('Camera');
+  camGui.add(cam, 'lag', 0.5, 8, 0.1).name('ritardo (inverso)');
+  camGui.add(cam, 'baseFov', 50, 80, 1).name('FOV base');
+  camGui.add(cam, 'fovBoost', 0, 1.5, 0.05).name('FOV velocità');
+  camGui.add(cam, 'maxFov', 60, 110, 1).name('FOV max');
+  camGui.add(cam, 'leanStrength', 0, 0.05, 0.002).name('inclinazione curva');
+  camGui.add(cam, 'leanMax', 0, 0.3, 0.01).name('inclinazione max');
+  camGui.add(cam, 'shakeStrength', 0, 0.1, 0.003).name('vibrazione buche');
+  camGui.add(cam, 'shakeMax', 0, 0.15, 0.01).name('vibrazione max');
+
   let track;
   let vehicle;
   let vehicleGuiFolder;
@@ -41,17 +61,57 @@ async function bootstrap() {
   const clock = new THREE.Clock();
   const chasePosition = new THREE.Vector3();
   const chaseTarget = new THREE.Vector3();
+  const tmpFwd = new THREE.Vector3();
+  const tmpUp = new THREE.Vector3();
+  const tmpView = new THREE.Vector3();
+  let prevVy = 0;
+  let currentFov = cam.baseFov;
+  let currentLean = 0;
 
   function updateCamera(delta) {
     const car = vehicle.group;
+    const body = vehicle.body;
+    const vel = body.linvel();
+    const angvel = body.angvel();
+    const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y + vel.z * vel.z);
+
+    tmpFwd.set(0, 0, 1).applyQuaternion(car.quaternion);
+    tmpUp.set(0, 1, 0).applyQuaternion(car.quaternion);
+    const forwardSpeed = vel.x * tmpFwd.x + vel.y * tmpFwd.y + vel.z * tmpFwd.z;
+    const yawRate = angvel.x * tmpUp.x + angvel.y * tmpUp.y + angvel.z * tmpUp.z;
+    const latAccel = forwardSpeed * yawRate;
+
     const desiredOffset = new THREE.Vector3(0, 5.5, -10).applyQuaternion(car.quaternion);
     const desiredPosition = car.position.clone().add(desiredOffset);
     const desiredTarget = car.position.clone().add(new THREE.Vector3(0, 1.2, 0));
-    const alpha = 1 - Math.exp(-delta * 5);
+    const alpha = 1 - Math.exp(-delta * cam.lag);
     chasePosition.lerp(desiredPosition, alpha);
     chaseTarget.lerp(desiredTarget, alpha);
+
+    const vy = vel.y;
+    const dvy = vy - prevVy;
+    prevVy = vy;
+    const bump = Math.abs(vy) + Math.abs(dvy) * 0.2;
+    const amp = Math.min(bump * cam.shakeStrength, cam.shakeMax);
+
     camera.position.copy(chasePosition);
+    camera.position.x += (Math.random() * 2 - 1) * amp;
+    camera.position.y += (Math.random() * 2 - 1) * amp;
     camera.lookAt(chaseTarget);
+
+    const targetLean = Math.max(-cam.leanMax, Math.min(cam.leanMax, latAccel * cam.leanStrength));
+    currentLean += (targetLean - currentLean) * Math.min(delta * 6, 1);
+    if (currentLean !== 0) {
+      camera.getWorldDirection(tmpView);
+      camera.rotateOnWorldAxis(tmpView, currentLean);
+    }
+
+    const targetFov = Math.min(cam.maxFov, cam.baseFov + speed * cam.fovBoost);
+    currentFov += (targetFov - currentFov) * Math.min(delta * 3, 1);
+    if (camera.fov !== currentFov) {
+      camera.fov = currentFov;
+      camera.updateProjectionMatrix();
+    }
   }
 
   function animate() {
