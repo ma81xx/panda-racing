@@ -12,8 +12,13 @@ export function createInput() {
   const pressedKeys = new Set();
   const pressedControls = new Set();
   const isPressed = (action) => pressedControls.has(action) || ACTIONS[action].some((code) => pressedKeys.has(code));
+  let onCameraCycle = null;
 
   function setKey(event, pressed) {
+    if (event.code === 'KeyC' && pressed && !event.repeat) {
+      if (onCameraCycle) onCameraCycle();
+      return;
+    }
     if (!CONTROL_CODES.has(event.code)) return;
     event.preventDefault();
     if (pressed) pressedKeys.add(event.code);
@@ -56,6 +61,7 @@ export function createInput() {
     get reverse() { return isPressed('reverse') ? 1 : 0; },
     get steer() { return (isPressed('steerLeft') ? 1 : 0) - (isPressed('steerRight') ? 1 : 0); },
     get handbrake() { return isPressed('handbrake'); },
-    get braking() { return isPressed('reverse'); }
+    get braking() { return isPressed('reverse'); },
+    set onCameraCycle(fn) { onCameraCycle = fn; }
   };
 }

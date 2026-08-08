@@ -22,6 +22,63 @@ body,
   white-space: pre-wrap;
 }
 
+#hud {
+  position: fixed;
+  top: max(0.8rem, env(safe-area-inset-top));
+  left: max(0.9rem, env(safe-area-inset-left));
+  z-index: 20;
+  padding: 0.7rem 0.9rem;
+  border-radius: 0.9rem;
+  background: rgba(12, 22, 32, 0.55);
+  backdrop-filter: blur(6px);
+  color: #fff;
+  font: 700 1rem/1 system-ui, sans-serif;
+  letter-spacing: 0.04em;
+  user-select: none;
+  pointer-events: none;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+.hud__speed {
+  font-size: 1.9rem;
+  font-weight: 800;
+}
+
+.hud__unit {
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-left: 0.3rem;
+  color: #bcd6ea;
+}
+
+.hud__gear {
+  font-size: 1.25rem;
+  color: #ffd27a;
+  margin-top: 0.15rem;
+}
+
+.hud__rpm {
+  margin-top: 0.45rem;
+  width: 9rem;
+  height: 0.4rem;
+  border-radius: 0.2rem;
+  background: rgba(255, 255, 255, 0.18);
+  overflow: hidden;
+}
+
+#hud-rpm-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #3fae57, #ffd27a 70%, #ff5a4a);
+  transition: width 0.08s linear;
+}
+
+.hud__lap {
+  margin-top: 0.4rem;
+  font-size: 0.85rem;
+  color: #cfe6f7;
+}
+
 .touch-controls {
   position: fixed;
   left: 50%;

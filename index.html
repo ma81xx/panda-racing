@@ -10,6 +10,12 @@
   </head>
   <body>
     <canvas id="app"></canvas>
+    <div id="hud" aria-hidden="true">
+      <div class="hud__speed"><span id="hud-speed">0</span><span class="hud__unit">km/h</span></div>
+      <div class="hud__gear"><span id="hud-gear">N</span></div>
+      <div class="hud__rpm"><div id="hud-rpm-fill"></div></div>
+      <div class="hud__lap">GIRO <span id="hud-lap">0.0</span> &middot; BEST <span id="hud-best">-</span></div>
+    </div>
     <div class="touch-controls" aria-label="Comandi macchina">
       <div class="touch-controls__cluster touch-controls__cluster--steer">
         <button class="touch-button" type="button" data-control="steerLeft" aria-label="Sterza a sinistra">←</button>

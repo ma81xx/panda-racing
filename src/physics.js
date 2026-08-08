@@ -10,18 +10,19 @@ export async function createPhysics() {
   params.numSolverIterations = 12;
   params.numInternalPgsIterations = 2;
   const world = new RAPIER.World({ x: 0, y: -9.81, z: 0 }, params.raw);
+  const eventQueue = new RAPIER.EventQueue(true);
   let accumulator = 0;
 
   function step(delta, beforeStep = () => {}) {
     accumulator += Math.min(delta, 0.1);
     while (accumulator >= FIXED_DT) {
       beforeStep(FIXED_DT);
-      world.step();
+      world.step(eventQueue);
       accumulator -= FIXED_DT;
     }
   }
 
-  return { RAPIER, world, step, fixedDt: FIXED_DT };
+  return { RAPIER, world, step, eventQueue, fixedDt: FIXED_DT };
 }
 
 export function syncMeshToBody(mesh, body) {

@@ -1,4 +1,9 @@
 import * as THREE from 'three';
+import { Sky } from 'three/examples/jsm/objects/Sky.js';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 
 function createSkyTexture() {
   const canvas = document.createElement('canvas');
@@ -60,12 +65,50 @@ export function createScene(canvas) {
   sun.shadow.camera.bottom = -90;
   scene.add(hemi, sun);
 
-  const sky = new THREE.Mesh(
-    new THREE.SphereGeometry(500, 16, 8),
-    new THREE.MeshBasicMaterial({ map: skyTexture, side: THREE.BackSide })
-  );
+  const sky = new Sky();
+  sky.scale.setScalar(1000);
+  sky.material.depthWrite = false;
   sky.material.fog = false;
+  sky.frustumCulled = false;
+  sky.renderOrder = -1000;
+  const sunDir = new THREE.Vector3(sun.position.x, sun.position.y, sun.position.z).normalize();
+  const skyUniforms = sky.material.uniforms;
+  skyUniforms.sunPosition.value.copy(sunDir);
+  skyUniforms.turbidity.value = 6;
+  skyUniforms.rayleigh.value = 2.2;
+  skyUniforms.mieCoefficient.value = 0.005;
+  skyUniforms.mieDirectionalG.value = 0.8;
   scene.add(sky);
+
+  const bloom = { enabled: false, strength: 0.45, radius: 0.6, threshold: 0.85 };
+  let composer = null;
+  let bloomPass = null;
+
+  function ensureComposer() {
+    if (composer) return;
+    composer = new EffectComposer(renderer);
+    composer.addPass(new RenderPass(scene, camera));
+    bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), bloom.strength, bloom.radius, bloom.threshold);
+    composer.addPass(bloomPass);
+    composer.addPass(new OutputPass());
+  }
+
+  function setBloom(enabled) {
+    bloom.enabled = enabled;
+    if (enabled) ensureComposer();
+  }
+
+  function renderFrame() {
+    sky.position.copy(camera.position);
+    if (bloom.enabled && composer) {
+      bloomPass.strength = bloom.strength;
+      bloomPass.radius = bloom.radius;
+      bloomPass.threshold = bloom.threshold;
+      composer.render();
+    } else {
+      renderer.render(scene, camera);
+    }
+  }
 
   const materials = {
     road: new THREE.MeshStandardMaterial({ color: 0x343840, roughness: 0.9, flatShading: true }),
@@ -81,7 +124,8 @@ export function createScene(canvas) {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
+    if (composer) composer.setSize(window.innerWidth, window.innerHeight);
   });
 
-  return { scene, renderer, camera, materials };
+  return { scene, renderer, camera, materials, renderFrame, bloom, setBloom };
 }

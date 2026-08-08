@@ -194,11 +194,41 @@ function buildTerrainMaterial() {
 const CROSS_COUNT = 7;
 const DIP_DEPTH = 0.05;
 
-function irregularOffset(i, k) {
-  return 0;
+function hash01(a, b, seed) {
+  let h = (seed ^ Math.imul(a, 0x9e3779b1) ^ Math.imul(b, 0x85ebca6b)) >>> 0;
+  h = Math.imul(h ^ (h >>> 15), 0x85ebca6b);
+  h ^= h >>> 13;
+  h = Math.imul(h ^ (h >>> 16), 0xc2b2ae35);
+  h ^= h >>> 16;
+  return (h >>> 0) / 4294967296;
 }
 
-function buildRoadPositions(curve, width, samples, crossCount) {
+function irregularOffset(i, k, seed, samples, crossCount) {
+  const t = i / samples;
+  const base =
+    Math.sin(t * 13.7 + seed * 0.3) * 0.5 +
+    Math.sin(t * 29.3 + seed * 1.7) * 0.25 +
+    Math.sin(t * 47 + seed * 0.7) * 0.25;
+  const lane =
+    Math.sin(k * 2.1 + seed * 0.6) * 0.6 +
+    Math.sin(k * 4.7 + seed * 1.1) * 0.4;
+  const half = (crossCount - 1) / 2;
+  const edgeGain = Math.min(1, (Math.abs(k - half) / half) * 1.5);
+  return (base * 0.5 + lane * 0.7) * 0.03 * (0.2 + 0.8 * edgeGain);
+}
+
+function roadBank(curve, samples, i, tangent) {
+  if (i >= samples) return 0;
+  const t2 = Math.min(1, (i + 1) / samples);
+  const tan2 = curve.getTangentAt(t2).normalize();
+  const ang = Math.atan2(
+    tangent.x * tan2.z - tangent.z * tan2.x,
+    tangent.x * tan2.x + tangent.z * tan2.z
+  );
+  return Math.max(-0.13, Math.min(0.13, ang * 5));
+}
+
+function buildRoadPositions(curve, width, samples, crossCount, seed) {
   const up = new THREE.Vector3(0, 1, 0);
   const positions = [];
   for (let i = 0; i <= samples; i++) {
@@ -206,19 +236,21 @@ function buildRoadPositions(curve, width, samples, crossCount) {
     const center = curve.getPointAt(t);
     const tangent = curve.getTangentAt(t).normalize();
     const side = new THREE.Vector3().crossVectors(up, tangent).normalize();
+    const bank = roadBank(curve, samples, i, tangent);
     for (let k = 0; k < crossCount; k++) {
       const u = (k / (crossCount - 1)) * 2 - 1;
       const dip = DIP_DEPTH * (1 - u * u);
+      const irregular = irregularOffset(i, k, seed, samples, crossCount);
       const p = center.clone().addScaledVector(side, u * (width / 2));
-      p.y += dip + irregularOffset(i, k);
+      p.y += dip + irregular + bank * u;
       positions.push(p.x, p.y, p.z);
     }
   }
   return new Float32Array(positions);
 }
 
-function buildRoadGeometry(curve, width, samples, crossCount) {
-  const positions = buildRoadPositions(curve, width, samples, crossCount);
+function buildRoadGeometry(curve, width, samples, crossCount, seed) {
+  const positions = buildRoadPositions(curve, width, samples, crossCount, seed);
   const uvs = [];
   const indices = [];
   for (let i = 0; i <= samples; i++) {
@@ -243,8 +275,8 @@ function buildRoadGeometry(curve, width, samples, crossCount) {
   return geometry;
 }
 
-function buildRoadColliderGeometry(curve, width, samples, crossCount, thickness) {
-  const top = buildRoadPositions(curve, width, samples, crossCount);
+function buildRoadColliderGeometry(curve, width, samples, crossCount, thickness, seed) {
+  const top = buildRoadPositions(curve, width, samples, crossCount, seed);
   const ringCount = samples + 1;
   const total = ringCount * crossCount;
   const allPositions = new Float32Array(total * 2 * 3);
@@ -484,7 +516,7 @@ export function createTrack(scene, physics, materials, seed = 1337) {
   const curve = new THREE.CatmullRomCurve3(points, true, 'catmullrom', 0.35);
   const roadWidth = 12;
   const samples = 520;
-  const roadGeometry = buildRoadGeometry(curve, roadWidth, samples, CROSS_COUNT);
+  const roadGeometry = buildRoadGeometry(curve, roadWidth, samples, CROSS_COUNT, seed);
 
   const road = new THREE.Mesh(roadGeometry, new THREE.MeshStandardMaterial({
     map: createDirtTexture(),
@@ -519,6 +551,7 @@ export function createTrack(scene, physics, materials, seed = 1337) {
     ),
     terrainBody
   );
+  terrainBody.userData = { surface: 'grass' };
 
   const plantBuilders = [createPine, createRoundTree, createBush];
   const plantCount = 320;
@@ -540,19 +573,49 @@ export function createTrack(scene, physics, materials, seed = 1337) {
     trackGroup.add(plant);
   }
 
+  const rockMat = new THREE.MeshStandardMaterial({ color: 0x8a8a85, roughness: 0.95, flatShading: true });
+  const rockCount = 26;
+  for (let i = 0; i < rockCount; i++) {
+    const t = random();
+    const p = curve.getPointAt(t);
+    const tan = curve.getTangentAt(t).normalize();
+    const side = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), tan).normalize();
+    const dist = 10 + random() * 16;
+    const sign = random() < 0.5 ? -1 : 1;
+    const x = p.x + side.x * dist * sign;
+    const z = p.z + side.z * dist * sign;
+    const y = terrainHeightAt(curve, x, z, baseY);
+    const s = 0.5 + random() * 0.9;
+    const rock = new THREE.Mesh(new THREE.IcosahedronGeometry(s, 1), rockMat);
+    rock.position.set(x, y + s * 0.25, z);
+    rock.rotation.set(random() * Math.PI, random() * Math.PI, random() * Math.PI);
+    rock.castShadow = true;
+    rock.receiveShadow = true;
+    trackGroup.add(rock);
+
+    const rockBody = physics.world.createRigidBody(physics.RAPIER.RigidBodyDesc.fixed());
+    physics.world.createCollider(
+      physics.RAPIER.ColliderDesc.ball(s * 0.7).setTranslation(x, y + s * 0.25, z),
+      rockBody
+    );
+    rockBody.userData = { surface: 'rock' };
+  }
+
   scene.add(trackGroup);
 
-  const colliderGeometry = buildRoadColliderGeometry(curve, roadWidth, samples, CROSS_COUNT, 0.15);
+  const colliderGeometry = buildRoadColliderGeometry(curve, roadWidth, samples, CROSS_COUNT, 0.15, seed);
   const vertices = new Float32Array(colliderGeometry.attributes.position.array);
   const indices = new Uint32Array(colliderGeometry.index.array);
   const body = physics.world.createRigidBody(physics.RAPIER.RigidBodyDesc.fixed());
   physics.world.createCollider(physics.RAPIER.ColliderDesc.trimesh(vertices, indices), body);
+  body.userData = { surface: 'dirt' };
 
   const groundBody = physics.world.createRigidBody(physics.RAPIER.RigidBodyDesc.fixed());
   physics.world.createCollider(
     physics.RAPIER.ColliderDesc.cuboid(160, 1, 160).setTranslation(0, roadBox.min.y - 3, 0),
     groundBody
   );
+  groundBody.userData = { surface: 'grass' };
 
   return {
     group: trackGroup,
