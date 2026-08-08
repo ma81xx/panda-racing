@@ -19,8 +19,8 @@ function createSkyTexture() {
 
 export function createScene(canvas) {
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0xbfd9ef);
-  scene.fog = new THREE.Fog(0xbfd9ef, 90, 380);
+  scene.background = new THREE.Color(0xcfe4f2);
+  scene.fog = new THREE.Fog(0xcfe4f2, 260, 900);
 
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -28,7 +28,7 @@ export function createScene(canvas) {
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMapping = THREE.AgXToneMapping;
   renderer.toneMappingExposure = 1.0;
 
   const skyTexture = createSkyTexture();
@@ -41,14 +41,14 @@ export function createScene(canvas) {
   );
   envScene.add(envSphere);
   scene.environment = pmrem.fromScene(envScene, 0.06).texture;
-  scene.environmentIntensity = 1.0;
+  scene.environmentIntensity = 0.55;
   pmrem.dispose();
 
   const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
   camera.position.set(0, 8, -14);
 
-  const hemi = new THREE.HemisphereLight(0xd8f0ff, 0x5c7a37, 0.6);
-  const sun = new THREE.DirectionalLight(0xfff2d0, 3.0);
+  const hemi = new THREE.HemisphereLight(0xd8f0ff, 0x5c7a37, 0.35);
+  const sun = new THREE.DirectionalLight(0xfff2d0, 3.2);
   sun.position.set(-45, 65, 20);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);

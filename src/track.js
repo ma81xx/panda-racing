@@ -92,78 +92,103 @@ function createDirtTexture() {
   return tex;
 }
 
-function createGrassTexture() {
-  const w = 512;
-  const h = 512;
-  const canvas = document.createElement('canvas');
-  canvas.width = w;
-  canvas.height = h;
-  const ctx = canvas.getContext('2d');
+function makeNoise(size) {
+  const gs = size + 1;
+  const grid = new Float32Array(gs * gs);
+  for (let i = 0; i < grid.length; i++) grid[i] = Math.random();
+  return (x, y) => {
+    x = Math.min(Math.max(x, 0), 1);
+    y = Math.min(Math.max(y, 0), 1);
+    const gx = x * size;
+    const gy = y * size;
+    const x0 = Math.floor(gx);
+    const y0 = Math.floor(gy);
+    const x1 = Math.min(x0 + 1, size);
+    const y1 = Math.min(y0 + 1, size);
+    const tx = gx - x0;
+    const ty = gy - y0;
+    const sx = tx * tx * (3 - 2 * tx);
+    const sy = ty * ty * (3 - 2 * ty);
+    const v00 = grid[y0 * gs + x0];
+    const v10 = grid[y0 * gs + x1];
+    const v01 = grid[y1 * gs + x0];
+    const v11 = grid[y1 * gs + x1];
+    return (v00 + (v10 - v00) * sx) * (1 - sy) + (v01 + (v11 - v01) * sx) * sy;
+  };
+}
 
-  const imageData = ctx.createImageData(w, h);
-  const data = imageData.data;
-  for (let i = 0; i < w * h; i++) {
-    const v = Math.random();
-    const r = 66 + Math.floor(v * 42);
-    const g = 122 + Math.floor(v * 68);
-    const b = 52 + Math.floor(v * 42);
-    data[i * 4] = r;
-    data[i * 4 + 1] = g;
-    data[i * 4 + 2] = b;
-    data[i * 4 + 3] = 255;
+function smoothstep01(a, b, x) {
+  const t = Math.max(0, Math.min(1, (x - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+}
+
+function grassColor(n, fine) {
+  return {
+    r: 60 + n * 35 + fine * 12,
+    g: 120 + n * 55 + fine * 30,
+    b: 50 + n * 35 + fine * 12
+  };
+}
+
+function dirtColor(n) {
+  return { r: 110 + n * 46, g: 84 + n * 40, b: 62 + n * 30 };
+}
+
+function gravelColor(n) {
+  const v = 118 + n * 55;
+  return { r: v, g: v * 0.97, b: v * 0.92 };
+}
+
+function rockColor(n) {
+  const v = 96 + n * 40;
+  return { r: v, g: v, b: v };
+}
+
+function buildTerrainMaterial() {
+  const size = 1024;
+  const nL = makeNoise(12);
+  const nM = makeNoise(28);
+  const nGrass = makeNoise(90);
+  const nGrassFine = makeNoise(360);
+  const nDirt = makeNoise(70);
+  const nGravel = makeNoise(110);
+  const nRock = makeNoise(40);
+  const data = new Uint8ClampedArray(size * size * 4);
+  for (let y = 0; y < size; y++) {
+    const v = y / (size - 1);
+    for (let x = 0; x < size; x++) {
+      const u = x / (size - 1);
+      const nl = nL(u, v);
+      const nm = nM(u, v);
+      let rock = smoothstep01(0.76, 0.9, nl);
+      let gravel = smoothstep01(0.64, 0.76, nm) * 0.75 * (1 - rock);
+      let dirt = smoothstep01(0.52, 0.63, nl * 0.5 + nm * 0.5) * 0.75 * (1 - rock);
+      let grass = Math.max(0, 1 - rock - gravel - dirt);
+      const sum = grass + dirt + gravel + rock;
+      grass /= sum; dirt /= sum; gravel /= sum; rock /= sum;
+      const cG = grassColor(nGrass(u, v), nGrassFine(u, v));
+      const cD = dirtColor(nDirt(u, v));
+      const cV = gravelColor(nGravel(u, v));
+      const cR = rockColor(nRock(u, v));
+      const i = (y * size + x) * 4;
+      let r = cG.r * grass + cD.r * dirt + cV.r * gravel + cR.r * rock;
+      let g = cG.g * grass + cD.g * dirt + cV.g * gravel + cR.g * rock;
+      let b = cG.b * grass + cD.b * dirt + cV.b * gravel + cR.b * rock;
+      r = 128 + (r - 128) * 1.2;
+      g = 128 + (g - 128) * 1.2;
+      b = 128 + (b - 128) * 1.2;
+      data[i] = Math.max(0, Math.min(255, r));
+      data[i + 1] = Math.max(0, Math.min(255, g));
+      data[i + 2] = Math.max(0, Math.min(255, b));
+      data[i + 3] = 255;
+    }
   }
-  ctx.putImageData(imageData, 0, 0);
-
-  for (let i = 0; i < 260; i++) {
-    const x = Math.random() * w;
-    const y = Math.random() * h;
-    const rad = 24 + Math.random() * 70;
-    const g = ctx.createRadialGradient(x, y, 0, x, y, rad);
-    const dark = Math.random() < 0.55;
-    g.addColorStop(0, dark
-      ? `rgba(24, 64, 22, ${0.05 + Math.random() * 0.09})`
-      : `rgba(172, 216, 128, ${0.04 + Math.random() * 0.07})`);
-    g.addColorStop(1, 'rgba(0, 0, 0, 0)');
-    ctx.fillStyle = g;
-    ctx.fillRect(x - rad, y - rad, rad * 2, rad * 2);
-  }
-
-  for (let i = 0; i < 240; i++) {
-    const x = Math.random() * w;
-    const y = Math.random() * h;
-    const rad = 8 + Math.random() * 22;
-    const g = ctx.createRadialGradient(x, y, 0, x, y, rad);
-    const yellow = Math.random() < 0.4;
-    g.addColorStop(0, yellow
-      ? `rgba(168, 156, 74, ${0.05 + Math.random() * 0.08})`
-      : `rgba(26, 88, 22, ${0.06 + Math.random() * 0.1})`);
-    g.addColorStop(1, 'rgba(0, 0, 0, 0)');
-    ctx.fillStyle = g;
-    ctx.fillRect(x - rad, y - rad, rad * 2, rad * 2);
-  }
-
-  ctx.lineWidth = 1;
-  ctx.lineCap = 'round';
-  for (let i = 0; i < 7000; i++) {
-    const x = Math.random() * w;
-    const y = Math.random() * h;
-    const len = 1.5 + Math.random() * 4.5;
-    const angle = Math.random() * Math.PI * 2;
-    const shade = Math.random();
-    ctx.strokeStyle = shade < 0.34 ? '#376e22' : shade < 0.67 ? '#5a9a38' : '#2a5c1c';
-    ctx.globalAlpha = 0.22 + Math.random() * 0.42;
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.lineTo(x + Math.cos(angle) * len, y + Math.sin(angle) * len);
-    ctx.stroke();
-  }
-  ctx.globalAlpha = 1;
-
-  const tex = new THREE.CanvasTexture(canvas);
+  const tex = new THREE.DataTexture(data, size, size);
+  tex.colorSpace = THREE.SRGBColorSpace;
   tex.wrapS = THREE.RepeatWrapping;
   tex.wrapT = THREE.RepeatWrapping;
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
+  tex.needsUpdate = true;
+  return new THREE.MeshStandardMaterial({ map: tex, roughness: 1, metalness: 0 });
 }
 
 const CROSS_COUNT = 7;
@@ -480,13 +505,7 @@ export function createTrack(scene, physics, materials, seed = 1337) {
   const roadBox = new THREE.Box3().setFromBufferAttribute(roadGeometry.attributes.position);
   const baseY = roadBox.min.y - 2;
 
-  const grassTex = createGrassTexture();
-  grassTex.repeat.set(44, 44);
-  const terrainMat = new THREE.MeshStandardMaterial({
-    map: grassTex,
-    roughness: 1,
-    metalness: 0
-  });
+  const terrainMat = buildTerrainMaterial();
   const terrainGeometry = buildTerrain(curve, baseY);
   const terrain = new THREE.Mesh(terrainGeometry, terrainMat);
   terrain.receiveShadow = true;
