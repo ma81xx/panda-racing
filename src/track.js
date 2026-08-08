@@ -92,6 +92,80 @@ function createDirtTexture() {
   return tex;
 }
 
+function createGrassTexture() {
+  const w = 512;
+  const h = 512;
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+
+  const imageData = ctx.createImageData(w, h);
+  const data = imageData.data;
+  for (let i = 0; i < w * h; i++) {
+    const v = Math.random();
+    const r = 66 + Math.floor(v * 42);
+    const g = 122 + Math.floor(v * 68);
+    const b = 52 + Math.floor(v * 42);
+    data[i * 4] = r;
+    data[i * 4 + 1] = g;
+    data[i * 4 + 2] = b;
+    data[i * 4 + 3] = 255;
+  }
+  ctx.putImageData(imageData, 0, 0);
+
+  for (let i = 0; i < 260; i++) {
+    const x = Math.random() * w;
+    const y = Math.random() * h;
+    const rad = 24 + Math.random() * 70;
+    const g = ctx.createRadialGradient(x, y, 0, x, y, rad);
+    const dark = Math.random() < 0.55;
+    g.addColorStop(0, dark
+      ? `rgba(24, 64, 22, ${0.05 + Math.random() * 0.09})`
+      : `rgba(172, 216, 128, ${0.04 + Math.random() * 0.07})`);
+    g.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(x - rad, y - rad, rad * 2, rad * 2);
+  }
+
+  for (let i = 0; i < 240; i++) {
+    const x = Math.random() * w;
+    const y = Math.random() * h;
+    const rad = 8 + Math.random() * 22;
+    const g = ctx.createRadialGradient(x, y, 0, x, y, rad);
+    const yellow = Math.random() < 0.4;
+    g.addColorStop(0, yellow
+      ? `rgba(168, 156, 74, ${0.05 + Math.random() * 0.08})`
+      : `rgba(26, 88, 22, ${0.06 + Math.random() * 0.1})`);
+    g.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(x - rad, y - rad, rad * 2, rad * 2);
+  }
+
+  ctx.lineWidth = 1;
+  ctx.lineCap = 'round';
+  for (let i = 0; i < 7000; i++) {
+    const x = Math.random() * w;
+    const y = Math.random() * h;
+    const len = 1.5 + Math.random() * 4.5;
+    const angle = Math.random() * Math.PI * 2;
+    const shade = Math.random();
+    ctx.strokeStyle = shade < 0.34 ? '#376e22' : shade < 0.67 ? '#5a9a38' : '#2a5c1c';
+    ctx.globalAlpha = 0.22 + Math.random() * 0.42;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + Math.cos(angle) * len, y + Math.sin(angle) * len);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
 const CROSS_COUNT = 7;
 const DIP_DEPTH = 0.05;
 
@@ -237,10 +311,78 @@ function buildTerrain(curve, baseY) {
   return geometry;
 }
 
-const trunkMat = new THREE.MeshStandardMaterial({ color: 0x6b4a2f, roughness: 1 });
-const pineMats = [0x2c5e2c, 0x3a6b3a, 0x245024].map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 1 }));
-const leafMats = [0x3f7a2f, 0x4c8a3a, 0x356b28].map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 1 }));
-const bushMats = [0x3d7330, 0x4f8a3e, 0x2f6326].map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 1 }));
+function createLeafTexture() {
+  const w = 128;
+  const h = 128;
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  const imageData = ctx.createImageData(w, h);
+  const data = imageData.data;
+  for (let i = 0; i < w * h; i++) {
+    const v = Math.random();
+    const r = 70 + Math.floor(v * 45);
+    const g = 105 + Math.floor(v * 65);
+    const b = 50 + Math.floor(v * 40);
+    data[i * 4] = r;
+    data[i * 4 + 1] = g;
+    data[i * 4 + 2] = b;
+    data[i * 4 + 3] = 255;
+  }
+  ctx.putImageData(imageData, 0, 0);
+  for (let i = 0; i < 110; i++) {
+    const x = Math.random() * w;
+    const y = Math.random() * h;
+    const rad = 6 + Math.random() * 20;
+    const g = ctx.createRadialGradient(x, y, 0, x, y, rad);
+    g.addColorStop(0, Math.random() < 0.5
+      ? `rgba(28, 66, 24, ${0.16 + Math.random() * 0.22})`
+      : `rgba(190, 224, 150, ${0.12 + Math.random() * 0.2})`);
+    g.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(x - rad, y - rad, rad * 2, rad * 2);
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+function createBarkTexture() {
+  const w = 128;
+  const h = 128;
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#6b4a2f';
+  ctx.fillRect(0, 0, w, h);
+  ctx.lineCap = 'round';
+  for (let i = 0; i < 90; i++) {
+    const x = Math.random() * w;
+    const len = 40 + Math.random() * 90;
+    ctx.strokeStyle = Math.random() < 0.5 ? 'rgba(30, 18, 8, 0.35)' : 'rgba(150, 112, 70, 0.3)';
+    ctx.lineWidth = 1 + Math.random() * 3;
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.quadraticCurveTo(x + (Math.random() - 0.5) * 10, h * 0.5, x + (Math.random() - 0.5) * 12, h);
+    ctx.stroke();
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+const leafTex = createLeafTexture();
+const barkTex = createBarkTexture();
+const trunkMat = new THREE.MeshStandardMaterial({ color: 0x8a6540, roughness: 1, map: barkTex });
+const pineMats = [0x2c5e2c, 0x3a6b3a, 0x245024].map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 1, map: leafTex }));
+const leafMats = [0x3f7a2f, 0x4c8a3a, 0x356b28].map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 1, map: leafTex }));
+const bushMats = [0x3d7330, 0x4f8a3e, 0x2f6326].map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 1, map: leafTex }));
 
 function createPine(random) {
   const g = new THREE.Group();
@@ -338,7 +480,13 @@ export function createTrack(scene, physics, materials, seed = 1337) {
   const roadBox = new THREE.Box3().setFromBufferAttribute(roadGeometry.attributes.position);
   const baseY = roadBox.min.y - 2;
 
-  const terrainMat = new THREE.MeshStandardMaterial({ color: 0x5f9f41, roughness: 1, flatShading: true });
+  const grassTex = createGrassTexture();
+  grassTex.repeat.set(44, 44);
+  const terrainMat = new THREE.MeshStandardMaterial({
+    map: grassTex,
+    roughness: 1,
+    metalness: 0
+  });
   const terrainGeometry = buildTerrain(curve, baseY);
   const terrain = new THREE.Mesh(terrainGeometry, terrainMat);
   terrain.receiveShadow = true;

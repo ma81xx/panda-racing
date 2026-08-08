@@ -23,6 +23,10 @@ async function bootstrap() {
   gui.add(settings, 'seed', 1, 999999, 1);
   gui.add(settings, 'regenerate').name('Rigenera tracciato');
 
+  const renderGui = gui.addFolder('Rendering');
+  renderGui.add(renderer, 'toneMappingExposure', 0.2, 3, 0.05).name('esposizione');
+  renderGui.add(scene, 'environmentIntensity', 0, 3, 0.05).name('luce ambiente');
+
   const cam = {
     lag: 3.0,
     baseFov: 60,
