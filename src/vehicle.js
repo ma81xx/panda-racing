@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import { syncMeshToBody } from './physics.js';
 
-export function createVehicle(scene, physics, start, tangent, gltfScene) {
+export function createVehicle(scene, physics, start, tangent, gltfScene, colliders = {}) {
   const group = new THREE.Group();
+  const chassis = new THREE.Group();
 
   const model = gltfScene.clone(true);
 
@@ -27,7 +28,8 @@ export function createVehicle(scene, physics, start, tangent, gltfScene) {
   model.scale.setScalar(scale);
   model.position.y = -(bbox.min.y + bbox.max.y) / 2;
 
-  group.add(model);
+  chassis.add(model);
+  group.add(chassis);
   group.updateMatrixWorld();
 
   const wheelData = [];
@@ -67,7 +69,7 @@ export function createVehicle(scene, physics, start, tangent, gltfScene) {
     node.removeFromParent();
     group.add(pivot);
 
-    wheelData.push({ pivot, spinner });
+    wheelData.push({ pivot, spinner, baseY: pivot.position.y });
   });
 
   model.traverse((node) => {
@@ -92,7 +94,7 @@ export function createVehicle(scene, physics, start, tangent, gltfScene) {
   const yaw = Math.atan2(tangent.x, tangent.z);
   bodyDesc.setRotation({ x: 0, y: Math.sin(yaw / 2), z: 0, w: Math.cos(yaw / 2) });
   const body = physics.world.createRigidBody(bodyDesc);
-  physics.world.createCollider(physics.RAPIER.ColliderDesc.cuboid(1.1, 0.55, 1.75).setDensity(100), body);
+  const bodyCollider = physics.world.createCollider(physics.RAPIER.ColliderDesc.cuboid(1.1, 0.55, 1.75).setDensity(100), body);
 
   const controller = physics.world.createVehicleController(body);
   controller.indexUpAxis = 1;
@@ -107,6 +109,7 @@ export function createVehicle(scene, physics, start, tangent, gltfScene) {
     wheelRadius: 0.42,
     frontGrip: 1.35,
     rearGrip: 1.15,
+    offRoadGrip: 0.5,
     maxSteer: 0.55,
     brakeForce: 28,
     handbrakeForce: 55,
@@ -118,11 +121,22 @@ export function createVehicle(scene, physics, start, tangent, gltfScene) {
   wheelPositions.forEach(([x, y, z]) => controller.addWheel({ x, y, z }, down, axle, tuning.suspensionRestLength, tuning.wheelRadius));
 
   let lastTuningKey = '';
+  const appliedSurface = ['road', 'road', 'road', 'road'];
+
+  function slipForSurface(i, surface) {
+    const base = tuning.frictionSlip * (i < 2 ? tuning.frontGrip : tuning.rearGrip);
+    return surface === 'dirt' ? base * tuning.offRoadGrip : base;
+  }
+
+  function applyGrip(i) {
+    controller.setWheelFrictionSlip(i, slipForSurface(i, appliedSurface[i]));
+  }
+
   function syncTuning() {
     const key = [
       tuning.suspensionRestLength, tuning.suspensionStiffness, tuning.maxSuspensionTravel,
       tuning.dampingCompression, tuning.dampingRelaxation, tuning.frictionSlip,
-      tuning.wheelRadius, tuning.frontGrip, tuning.rearGrip
+      tuning.wheelRadius, tuning.frontGrip, tuning.rearGrip, tuning.offRoadGrip
     ].join(',');
     if (key === lastTuningKey) return;
     lastTuningKey = key;
@@ -132,15 +146,78 @@ export function createVehicle(scene, physics, start, tangent, gltfScene) {
       controller.setWheelMaxSuspensionTravel(i, tuning.maxSuspensionTravel);
       controller.setWheelSuspensionCompression(i, tuning.dampingCompression);
       controller.setWheelSuspensionRelaxation(i, tuning.dampingRelaxation);
-      const axleGrip = i < 2 ? tuning.frontGrip : tuning.rearGrip;
-      controller.setWheelFrictionSlip(i, tuning.frictionSlip * axleGrip);
       controller.setWheelRadius(i, tuning.wheelRadius);
+      applyGrip(i);
     }
   }
   syncTuning();
 
   let currentSteer = 0;
   let wheelSpin = 0;
+
+  const state = {
+    speed: 0,
+    slipAmount: 0,
+    slips: [0, 0, 0, 0],
+    skids: [false, false, false, false],
+    contactPoints: [null, null, null, null],
+    surfaces: ['road', 'road', 'road', 'road'],
+    compressions: [0, 0, 0, 0],
+    offRoad: false,
+    flipped: false
+  };
+
+  const quat = new THREE.Quaternion();
+  const fwdVec = new THREE.Vector3();
+  const latVec = new THREE.Vector3();
+  const linVec = new THREE.Vector3();
+
+  function readState(input) {
+    const lin = body.linvel();
+    const q = body.rotation();
+    state.speed = Math.abs(controller.currentVehicleSpeed());
+
+    quat.set(q.x, q.y, q.z, q.w);
+    linVec.set(lin.x, lin.y, lin.z);
+    fwdVec.set(0, 0, 1).applyQuaternion(quat);
+    latVec.set(1, 0, 0).applyQuaternion(quat);
+    const lateralSlip = Math.abs(latVec.dot(linVec));
+    state.slipAmount = Math.min(lateralSlip / 6, 1);
+
+    let offRoad = false;
+    for (let i = 0; i < 4; i++) {
+      const suspLen = controller.wheelSuspensionLength(i);
+      const compression = suspLen == null ? 0 : tuning.suspensionRestLength - suspLen;
+      state.compressions[i] = THREE.MathUtils.clamp(compression, -0.3, 0.3);
+
+      const contact = controller.wheelContactPoint(i);
+      state.contactPoints[i] = contact ? new THREE.Vector3(contact.x, contact.y, contact.z) : null;
+
+      const ground = controller.wheelGroundObject(i);
+      let surface = 'road';
+      if (ground && colliders.terrain && ground.handle === colliders.terrain.handle) {
+        surface = 'dirt';
+        offRoad = true;
+      }
+      state.surfaces[i] = surface;
+
+      if (surface !== appliedSurface[i]) {
+        appliedSurface[i] = surface;
+        applyGrip(i);
+      }
+
+      const inContact = state.contactPoints[i] !== null;
+      const handbrakeActive = input.handbrake && i >= 2;
+      const hardBrake = input.braking && !input.throttle && state.speed > 3;
+      const lateral = lateralSlip > 2.2;
+      state.skids[i] = inContact && state.speed > 1.5 && (lateral || handbrakeActive || hardBrake);
+      state.slips[i] = state.slipAmount;
+    }
+    state.offRoad = offRoad;
+
+    const upY = 1 - 2 * (q.x * q.x + q.z * q.z);
+    state.flipped = upY < 0.1;
+  }
 
   function update(input, dt) {
     syncTuning();
@@ -155,16 +232,35 @@ export function createVehicle(scene, physics, start, tangent, gltfScene) {
       controller.setWheelSteering(i, i < 2 ? currentSteer : 0);
     }
     controller.updateVehicle(dt);
-
-    const vel = body.linvel();
-    const speed = Math.sqrt(vel.x * vel.x + vel.y * vel.y + vel.z * vel.z);
-    wheelSpin += speed * dt / tuning.wheelRadius;
+    readState(input);
   }
+
+  const chassisTilt = { x: 0, z: 0 };
 
   function sync() {
     syncMeshToBody(group, body);
-    wheelData.forEach((wd) => {
-      wd.pivot.rotation.y = currentSteer;
+
+    const c = state.compressions;
+    const front = (c[0] + c[1]) / 2;
+    const rear = (c[2] + c[3]) / 2;
+    const rightSide = c[0] + c[2];
+    const leftSide = c[1] + c[3];
+    const targetX = THREE.MathUtils.clamp((front - rear) * 0.9, -0.22, 0.22);
+    const targetZ = THREE.MathUtils.clamp((rightSide - leftSide) * 0.55, -0.22, 0.22);
+    chassisTilt.x += (targetX - chassisTilt.x) * 0.22;
+    chassisTilt.z += (targetZ - chassisTilt.z) * 0.22;
+    chassis.rotation.x = chassisTilt.x;
+    chassis.rotation.z = chassisTilt.z;
+
+    wheelData.forEach((wd, i) => {
+      wd.pivot.position.y = wd.baseY + state.compressions[i];
+      wd.pivot.rotation.y = i < 2 ? currentSteer : 0;
+      const rot = controller.wheelRotation(i);
+      if (rot != null) {
+        wheelSpin = rot;
+      } else {
+        wheelSpin += (state.speed * 0.016) / tuning.wheelRadius;
+      }
       wd.spinner.rotation.y = wheelSpin;
     });
   }
@@ -180,11 +276,12 @@ export function createVehicle(scene, physics, start, tangent, gltfScene) {
     f.add(tuning, 'wheelRadius', 0.25, 0.75, 0.01);
     f.add(tuning, 'frontGrip', 0.2, 3, 0.01);
     f.add(tuning, 'rearGrip', 0.2, 3, 0.01);
+    f.add(tuning, 'offRoadGrip', 0.05, 1.2, 0.01).name('grip erba/fango');
     f.add(tuning, 'maxSteer', 0.1, 1.1, 0.01).name('sterzata');
     f.add(tuning, 'brakeForce', 0, 90, 1).name('freno');
     f.add(tuning, 'handbrakeForce', 0, 120, 1).name('freno a mano');
     return f;
   }
 
-  return { group, body, controller, tuning, update, sync, addGui };
+  return { group, chassis, body, bodyCollider, controller, tuning, state, update, sync, addGui };
 }

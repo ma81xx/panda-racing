@@ -207,12 +207,9 @@ function terrainHeightAt(curve, x, z, baseY, samples = 520) {
     const d = Math.sqrt(dx * dx + dz * dz);
     if (d < bestD) { bestD = d; bestY = p.y; }
   }
-  if (bestD < ROAD_HALF) return bestY - 0.5;
-  if (bestD < ROAD_HALF + 2) {
-    const s = (bestD - ROAD_HALF) / 2;
-    return bestY - 0.5 + s * 0.5;
-  }
-  return bestY + (baseY - bestY) * smoothstep(ROAD_HALF + 2, ROAD_HALF + 2 + SHOULDER, bestD);
+  const edgeY = bestY - 0.5;
+  if (bestD < ROAD_HALF) return edgeY;
+  return edgeY + (baseY - edgeY) * smoothstep(ROAD_HALF, ROAD_HALF + SHOULDER, bestD);
 }
 
 function buildTerrain(curve, baseY) {
@@ -249,62 +246,173 @@ function buildTerrain(curve, baseY) {
 }
 
 const trunkMat = new THREE.MeshStandardMaterial({ color: 0x6b4a2f, roughness: 1 });
-const pineMats = [0x2c5e2c, 0x3a6b3a, 0x245024].map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 1 }));
-const leafMats = [0x3f7a2f, 0x4c8a3a, 0x356b28].map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 1 }));
-const bushMats = [0x3d7330, 0x4f8a3e, 0x2f6326].map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 1 }));
+const foliageMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1 });
 
-function createPine(random) {
-  const g = new THREE.Group();
-  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.32, 2.2, 6), trunkMat);
-  trunk.position.y = 1.1;
-  trunk.castShadow = true;
-  g.add(trunk);
-  const tiers = 3;
-  for (let i = 0; i < tiers; i++) {
-    const r = 1.5 - i * 0.4;
-    const cone = new THREE.Mesh(new THREE.ConeGeometry(r, 1.9, 7), pineMats[i % pineMats.length]);
-    cone.position.y = 1.8 + i * 1.25;
-    cone.castShadow = true;
-    g.add(cone);
-  }
-  return g;
+const trunkGeo = new THREE.CylinderGeometry(0.22, 0.32, 2.2, 6);
+const coneGeos = [1.5, 1.1, 0.7].map((r) => new THREE.ConeGeometry(r, 1.9, 7));
+const leafGeo = new THREE.IcosahedronGeometry(1.5, 1);
+const blobGeo = new THREE.IcosahedronGeometry(0.9, 1);
+const bushGeo = new THREE.IcosahedronGeometry(1, 1);
+
+const PINE_COLORS = [0x2c5e2c, 0x3a6b3a, 0x245024];
+const LEAF_COLORS = [0x3f7a2f, 0x4c8a3a, 0x356b28];
+const BUSH_COLORS = [0x3d7330, 0x4f8a3e, 0x2f6326];
+
+function pick(random, colors) {
+  return colors[Math.floor(random() * colors.length)];
 }
 
-function createRoundTree(random) {
-  const g = new THREE.Group();
-  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.3, 2.4, 6), trunkMat);
-  trunk.position.y = 1.2;
-  trunk.castShadow = true;
-  g.add(trunk);
-  const foliage = new THREE.Mesh(
-    new THREE.IcosahedronGeometry(1.5, 1),
-    leafMats[Math.floor(random() * leafMats.length)]
-  );
-  foliage.position.y = 3.1;
-  foliage.castShadow = true;
-  g.add(foliage);
-  const blob = new THREE.Mesh(
-    new THREE.IcosahedronGeometry(0.9, 1),
-    foliage.material
-  );
-  blob.position.set(1.1, 2.6, 0.3);
-  blob.castShadow = true;
-  g.add(blob);
-  return g;
+function pineParts(random) {
+  return [
+    { key: 'trunk', px: 0, py: 1.1, pz: 0, ps: 1, color: null },
+    { key: 'pine_0', px: 0, py: 1.8, pz: 0, ps: 1, color: pick(random, PINE_COLORS) },
+    { key: 'pine_1', px: 0, py: 3.05, pz: 0, ps: 1, color: pick(random, PINE_COLORS) },
+    { key: 'pine_2', px: 0, py: 4.3, pz: 0, ps: 1, color: pick(random, PINE_COLORS) }
+  ];
 }
 
-function createBush(random) {
-  const g = new THREE.Group();
-  const mat = bushMats[Math.floor(random() * bushMats.length)];
+function roundTreeParts(random) {
+  const c = pick(random, LEAF_COLORS);
+  return [
+    { key: 'trunk', px: 0, py: 1.2, pz: 0, ps: 1, color: null },
+    { key: 'leaf', px: 0, py: 3.1, pz: 0, ps: 1, color: c },
+    { key: 'blob', px: 1.1, py: 2.6, pz: 0.3, ps: 1, color: c }
+  ];
+}
+
+function bushParts(random) {
+  const c = pick(random, BUSH_COLORS);
   const n = 2 + Math.floor(random() * 2);
+  const parts = [];
   for (let i = 0; i < n; i++) {
     const s = 0.6 + random() * 0.6;
-    const b = new THREE.Mesh(new THREE.IcosahedronGeometry(s, 1), mat);
-    b.position.set((random() - 0.5) * 1.4, s * 0.6, (random() - 0.5) * 1.4);
-    b.castShadow = true;
-    g.add(b);
+    parts.push({ key: 'bush', px: (random() - 0.5) * 1.4, py: s * 0.6, pz: (random() - 0.5) * 1.4, ps: s, color: c });
   }
-  return g;
+  return parts;
+}
+
+function buildPlants(trackGroup, curve, baseY, random, plantCount) {
+  const instances = { trunk: [], pine_0: [], pine_1: [], pine_2: [], leaf: [], blob: [], bush: [] };
+  const hazardSpots = [];
+  const builders = [pineParts, roundTreeParts, bushParts];
+
+  const m4 = new THREE.Matrix4();
+  const rot = new THREE.Matrix4();
+  const scl = new THREE.Matrix4();
+  const trs = new THREE.Matrix4();
+  const spl = new THREE.Matrix4();
+  const side = new THREE.Vector3();
+
+  function pushPart(key, x, y, z, yaw, sc, px, py, pz, ps, color) {
+    m4.makeTranslation(x, y, z);
+    rot.makeRotationY(yaw);
+    scl.makeScale(sc, sc, sc);
+    m4.multiply(rot).multiply(scl);
+    trs.makeTranslation(px, py, pz);
+    m4.multiply(trs);
+    spl.makeScale(ps, ps, ps);
+    m4.multiply(spl);
+    instances[key].push({ m: m4.clone(), color });
+  }
+
+  for (let i = 0; i < plantCount; i++) {
+    const t = random();
+    const p = curve.getPointAt(t);
+    const tan = curve.getTangentAt(t).normalize();
+    side.crossVectors(new THREE.Vector3(0, 1, 0), tan).normalize();
+    const dist = 14 + random() * 35;
+    const sign = random() < 0.5 ? -1 : 1;
+    const x = p.x + side.x * dist * sign;
+    const z = p.z + side.z * dist * sign;
+    const y = terrainHeightAt(curve, x, z, baseY);
+    const yaw = random() * Math.PI * 2;
+    const sc = 0.8 + random() * 0.9;
+    const parts = builders[Math.floor(random() * builders.length)](random);
+    for (const part of parts) {
+      pushPart(part.key, x, y, z, yaw, sc, part.px, part.py, part.pz, part.ps, part.color);
+    }
+    if (parts[0].key === 'trunk' && dist < 24) {
+      hazardSpots.push([x, y, z]);
+    }
+  }
+
+  const meshDefs = [
+    { key: 'trunk', geo: trunkGeo, mat: trunkMat, colored: false },
+    { key: 'pine_0', geo: coneGeos[0], mat: foliageMat, colored: true },
+    { key: 'pine_1', geo: coneGeos[1], mat: foliageMat, colored: true },
+    { key: 'pine_2', geo: coneGeos[2], mat: foliageMat, colored: true },
+    { key: 'leaf', geo: leafGeo, mat: foliageMat, colored: true },
+    { key: 'blob', geo: blobGeo, mat: foliageMat, colored: true },
+    { key: 'bush', geo: bushGeo, mat: foliageMat, colored: true }
+  ];
+  const color = new THREE.Color();
+  for (const def of meshDefs) {
+    const list = instances[def.key];
+    if (!list.length) continue;
+    const mesh = new THREE.InstancedMesh(def.geo, def.mat, list.length);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    mesh.frustumCulled = false;
+    for (let i = 0; i < list.length; i++) {
+      mesh.setMatrixAt(i, list[i].m);
+      if (def.colored && list[i].color) {
+        color.setHex(list[i].color).multiplyScalar(0.85 + random() * 0.3);
+        mesh.setColorAt(i, color);
+      }
+    }
+    mesh.instanceMatrix.needsUpdate = true;
+    if (def.colored) mesh.instanceColor.needsUpdate = true;
+    trackGroup.add(mesh);
+  }
+
+  return hazardSpots;
+}
+
+function buildGrass(trackGroup, curve, baseY, random, count) {
+  const bladeGeo = new THREE.BufferGeometry();
+  bladeGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array([
+    -0.05, 0, 0,
+    0.05, 0, 0,
+    0, 0.55, 0,
+    -0.05, 0, 0,
+    0, 0.55, 0,
+    0.05, 0, 0
+  ]), 3));
+  bladeGeo.computeVertexNormals();
+
+  const grassMat = new THREE.MeshStandardMaterial({ color: 0xffffff, side: THREE.DoubleSide, roughness: 1 });
+  const mesh = new THREE.InstancedMesh(bladeGeo, grassMat, count);
+  mesh.frustumCulled = false;
+
+  const m4 = new THREE.Matrix4();
+  const quat = new THREE.Quaternion();
+  const euler = new THREE.Euler();
+  const pos = new THREE.Vector3();
+  const scl = new THREE.Vector3();
+  const sideV = new THREE.Vector3();
+  const color = new THREE.Color();
+
+  for (let i = 0; i < count; i++) {
+    const t = random();
+    const p = curve.getPointAt(t);
+    const tan = curve.getTangentAt(t).normalize();
+    sideV.crossVectors(new THREE.Vector3(0, 1, 0), tan).normalize();
+    const dist = ROAD_HALF + 1.5 + random() * 8;
+    const sign = random() < 0.5 ? -1 : 1;
+    const x = p.x + sideV.x * dist * sign;
+    const z = p.z + sideV.z * dist * sign;
+    const y = terrainHeightAt(curve, x, z, baseY);
+    const sc = 0.7 + random() * 0.9;
+    euler.set(0, random() * Math.PI * 2, (random() - 0.5) * 0.3);
+    quat.setFromEuler(euler);
+    m4.compose(pos.set(x, y, z), quat, scl.set(sc, sc, sc));
+    mesh.setMatrixAt(i, m4);
+    color.setHex(random() < 0.5 ? 0x4d9e33 : 0x6cbd45).multiplyScalar(0.85 + random() * 0.3);
+    mesh.setColorAt(i, color);
+  }
+  mesh.instanceMatrix.needsUpdate = true;
+  mesh.instanceColor.needsUpdate = true;
+  trackGroup.add(mesh);
 }
 
 export function createTrack(scene, physics, materials, seed = 1337) {
@@ -356,32 +464,27 @@ export function createTrack(scene, physics, materials, seed = 1337) {
   trackGroup.add(terrain);
 
   const terrainBody = physics.world.createRigidBody(physics.RAPIER.RigidBodyDesc.fixed());
-  physics.world.createCollider(
+  const terrainCollider = physics.world.createCollider(
     physics.RAPIER.ColliderDesc.trimesh(
       new Float32Array(terrainGeometry.attributes.position.array),
       new Uint32Array(terrainGeometry.index.array)
     ),
     terrainBody
   );
+  terrainCollider.setFriction(0.35);
 
-  const plantBuilders = [createPine, createRoundTree, createBush];
-  const plantCount = 320;
-  for (let i = 0; i < plantCount; i++) {
-    const t = random();
-    const p = curve.getPointAt(t);
-    const tan = curve.getTangentAt(t).normalize();
-    const side = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), tan).normalize();
-    const dist = 14 + random() * 35;
-    const sign = random() < 0.5 ? -1 : 1;
-    const x = p.x + side.x * dist * sign;
-    const z = p.z + side.z * dist * sign;
-    const y = terrainHeightAt(curve, x, z, baseY);
-    const plant = plantBuilders[Math.floor(random() * plantBuilders.length)](random);
-    plant.position.set(x, y, z);
-    plant.rotation.y = random() * Math.PI * 2;
-    const sc = 0.8 + random() * 0.9;
-    plant.scale.setScalar(sc);
-    trackGroup.add(plant);
+  const plantCount = 600;
+  const hazardSpots = buildPlants(trackGroup, curve, baseY, random, plantCount);
+  buildGrass(trackGroup, curve, baseY, random, 1800);
+
+  const hazardColliders = [];
+  for (const [x, y, z] of hazardSpots) {
+    const hazardBody = physics.world.createRigidBody(physics.RAPIER.RigidBodyDesc.fixed());
+    const hazardCollider = physics.world.createCollider(
+      physics.RAPIER.ColliderDesc.ball(0.5).setTranslation(x, y + 0.7, z),
+      hazardBody
+    );
+    hazardColliders.push(hazardCollider);
   }
 
   scene.add(trackGroup);
@@ -390,7 +493,7 @@ export function createTrack(scene, physics, materials, seed = 1337) {
   const vertices = new Float32Array(colliderGeometry.attributes.position.array);
   const indices = new Uint32Array(colliderGeometry.index.array);
   const body = physics.world.createRigidBody(physics.RAPIER.RigidBodyDesc.fixed());
-  physics.world.createCollider(physics.RAPIER.ColliderDesc.trimesh(vertices, indices), body);
+  const roadCollider = physics.world.createCollider(physics.RAPIER.ColliderDesc.trimesh(vertices, indices), body);
 
   const groundBody = physics.world.createRigidBody(physics.RAPIER.RigidBodyDesc.fixed());
   physics.world.createCollider(
@@ -405,6 +508,8 @@ export function createTrack(scene, physics, materials, seed = 1337) {
     curve,
     start: curve.getPointAt(0),
     tangent: curve.getTangentAt(0),
-    body
+    body,
+    colliders: { road: roadCollider, terrain: terrainCollider },
+    hazards: { colliders: hazardColliders }
   };
 }

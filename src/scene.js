@@ -21,12 +21,13 @@ export function createScene(canvas) {
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
   sun.shadow.camera.near = 1;
-  sun.shadow.camera.far = 180;
-  sun.shadow.camera.left = -90;
-  sun.shadow.camera.right = 90;
-  sun.shadow.camera.top = 90;
-  sun.shadow.camera.bottom = -90;
+  sun.shadow.camera.far = 220;
+  sun.shadow.camera.left = -38;
+  sun.shadow.camera.right = 38;
+  sun.shadow.camera.top = 38;
+  sun.shadow.camera.bottom = -38;
   scene.add(ambient, hemi, sun);
+  scene.add(sun.target);
 
   const sky = new THREE.Mesh(
     new THREE.SphereGeometry(500, 16, 8),
@@ -50,5 +51,5 @@ export function createScene(canvas) {
     renderer.setSize(window.innerWidth, window.innerHeight);
   });
 
-  return { scene, renderer, camera, materials };
+  return { scene, renderer, camera, materials, sun };
 }
