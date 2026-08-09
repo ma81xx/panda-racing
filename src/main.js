@@ -19,7 +19,7 @@ const CAM_DAMPING = 16;
 
 async function bootstrap() {
   const canvas = document.querySelector('#app');
-  const { scene, renderer, camera, materials, sun } = createScene(canvas);
+  const { scene, renderer, camera, materials, sun, sky } = createScene(canvas);
   const physics = await createPhysics();
   const input = createInput();
 
@@ -185,24 +185,26 @@ async function bootstrap() {
   function emitDust(delta) {
     const st = vehicle.state;
     dustAccum += delta;
-    let interval = Infinity;
-    let color = 0xc0b096;
-    let point = null;
     if (st.offRoad && st.speed > 2) {
-      interval = st.speed > 8 ? 0.06 : 0.12;
-      for (let i = 0; i < 4; i++) {
-        if (st.contactPoints[i]) { point = st.contactPoints[i]; break; }
+      const interval = st.speed > 8 ? 0.06 : 0.12;
+      if (dustAccum > interval) {
+        dustAccum = 0;
+        for (let i = 0; i < 4; i++) {
+          if (st.contactPoints[i]) {
+            particles.emit(st.contactPoints[i], 0xc0b096, 2.2, 12, 0.9, 0.6);
+          }
+        }
       }
     } else if (st.slipAmount > 0.55) {
-      interval = 0.05;
-      color = 0xdddddd;
-      for (let i = 0; i < 4; i++) {
-        if (st.skids[i] && st.contactPoints[i]) { point = st.contactPoints[i]; break; }
+      const interval = 0.05;
+      if (dustAccum > interval) {
+        dustAccum = 0;
+        for (let i = 0; i < 4; i++) {
+          if (st.skids[i] && st.contactPoints[i]) {
+            particles.emit(st.contactPoints[i], 0xdddddd, 2.2, 12, 0.45, 0.6);
+          }
+        }
       }
-    }
-    if (point && dustAccum > interval) {
-      dustAccum = 0;
-      particles.emit(point, color, 2.2, 12, st.offRoad ? 0.9 : 0.45, 0.6);
     }
   }
 
@@ -289,6 +291,7 @@ async function bootstrap() {
       pos: vehicle.body.translation()
     });
     shake = Math.max(0, shake - delta * 2.4);
+    sky.material.uniforms.time.value += delta;
     updateCamera(delta);
     debug.update();
     renderer.render(scene, camera);

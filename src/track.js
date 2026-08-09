@@ -213,8 +213,8 @@ function terrainHeightAt(curve, x, z, baseY, samples = 520) {
 }
 
 function buildTerrain(curve, baseY) {
-  const size = 260;
-  const segs = 80;
+  const size = 800;
+  const segs = 120;
   const positions = [];
   const uvs = [];
   const indices = [];

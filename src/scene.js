@@ -1,9 +1,10 @@
 import * as THREE from 'three';
+import { Sky } from 'three/examples/jsm/objects/Sky.js';
 
 export function createScene(canvas) {
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x87bde8);
-  scene.fog = new THREE.Fog(0x87bde8, 80, 360);
+  scene.background = new THREE.Color(0xbfd9f2);
+  scene.fog = new THREE.Fog(0xbfd9f2, 100, 380);
 
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -29,10 +30,20 @@ export function createScene(canvas) {
   scene.add(ambient, hemi, sun);
   scene.add(sun.target);
 
-  const sky = new THREE.Mesh(
-    new THREE.SphereGeometry(500, 16, 8),
-    new THREE.MeshBasicMaterial({ color: 0x8ec9f4, side: THREE.BackSide })
-  );
+  const sky = new Sky();
+  sky.scale.setScalar(700);
+  const skyUniforms = sky.material.uniforms;
+  skyUniforms.turbidity.value = 6;
+  skyUniforms.rayleigh.value = 1.6;
+  skyUniforms.mieCoefficient.value = 0.005;
+  skyUniforms.mieDirectionalG.value = 0.8;
+  skyUniforms.sunPosition.value.copy(sun.position).normalize();
+  skyUniforms.showSunDisc.value = 1;
+  skyUniforms.cloudCoverage.value = 0.35;
+  skyUniforms.cloudDensity.value = 0.5;
+  skyUniforms.cloudElevation.value = 0.45;
+  skyUniforms.cloudScale.value = 0.0003;
+  skyUniforms.cloudSpeed.value = 0.0002;
   scene.add(sky);
 
   const materials = {
@@ -51,5 +62,5 @@ export function createScene(canvas) {
     renderer.setSize(window.innerWidth, window.innerHeight);
   });
 
-  return { scene, renderer, camera, materials, sun };
+  return { scene, renderer, camera, materials, sun, sky };
 }
