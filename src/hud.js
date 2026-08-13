@@ -15,6 +15,10 @@ export function createHud(curve) {
       <div class="hud__time" data-hud="time">0:00.000</div>
       <div class="hud__best">BEST <span data-hud="best">&mdash;</span></div>
     </div>
+    <div class="hud__cluster">
+      <div class="hud__gear" data-hud="gear">N</div>
+      <div class="hud__rpm"><div class="hud__rpm-fill" data-hud="rpm"></div></div>
+    </div>
     <div class="hud__progress"><div class="hud__progress-fill" data-hud="progress"></div></div>
     <canvas class="hud__minimap" width="160" height="160"></canvas>
   `;
@@ -24,7 +28,9 @@ export function createHud(curve) {
     lap: root.querySelector('[data-hud="lap"]'),
     time: root.querySelector('[data-hud="time"]'),
     best: root.querySelector('[data-hud="best"]'),
-    progress: root.querySelector('[data-hud="progress"]')
+    progress: root.querySelector('[data-hud="progress"]'),
+    gear: root.querySelector('[data-hud="gear"]'),
+    rpm: root.querySelector('[data-hud="rpm"]')
   };
 
   const canvas = root.querySelector('.hud__minimap');
@@ -84,11 +90,19 @@ export function createHud(curve) {
   }
 
   return {
-    update({ lap, time, best, progress, pos }) {
+    update({ lap, time, best, progress, pos, gear, rpm, redline }) {
       el.lap.textContent = String(lap);
       el.time.textContent = fmtTime(time);
       el.best.textContent = best == null ? '\u2014' : fmtTime(best);
       el.progress.style.width = `${(progress * 100).toFixed(1)}%`;
+
+      el.gear.textContent = gear === 0 ? 'N' : gear < 0 ? 'R' : String(gear);
+      el.gear.classList.toggle('is-reverse', gear < 0);
+      const red = redline || 7200;
+      const pct = Math.min(Math.max((rpm / red) * 100, 0), 100);
+      el.rpm.style.width = `${pct.toFixed(1)}%`;
+      el.rpm.classList.toggle('is-redline', rpm >= red * 0.85);
+
       draw(pos, progress);
     },
     destroy() {

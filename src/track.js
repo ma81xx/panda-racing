@@ -95,16 +95,17 @@ function createDirtTexture() {
 const CROSS_COUNT = 7;
 const DIP_DEPTH = 0.12;
 
-function irregularOffset(i, k) {
-  const x = i * 0.37 + k * 1.13;
-  return Math.sin(x) * 0.045 + Math.sin(x * 2.3 + 1.7) * 0.02;
+function irregularOffset(t, k) {
+  const a = t * Math.PI * 2 * 31 + k * 1.13;
+  const b = t * Math.PI * 2 * 71 + k * 2.6 + 1.7;
+  return Math.sin(a) * 0.045 + Math.sin(b) * 0.02;
 }
 
 function buildRoadPositions(curve, width, samples, crossCount) {
   const up = new THREE.Vector3(0, 1, 0);
   const positions = [];
   for (let i = 0; i <= samples; i++) {
-    const t = i / samples;
+    const t = (i % samples) / samples;
     const center = curve.getPointAt(t);
     const tangent = curve.getTangentAt(t).normalize();
     const side = new THREE.Vector3().crossVectors(up, tangent).normalize();
@@ -112,7 +113,7 @@ function buildRoadPositions(curve, width, samples, crossCount) {
       const u = (k / (crossCount - 1)) * 2 - 1;
       const dip = DIP_DEPTH * (1 - u * u);
       const p = center.clone().addScaledVector(side, u * (width / 2));
-      p.y += dip + irregularOffset(i, k);
+      p.y += dip + irregularOffset(t, k);
       positions.push(p.x, p.y, p.z);
     }
   }
@@ -145,24 +146,52 @@ function buildRoadGeometry(curve, width, samples, crossCount) {
   return geometry;
 }
 
-function buildRoadColliderGeometry(curve, width, samples, crossCount, thickness) {
-  const top = buildRoadPositions(curve, width, samples, crossCount);
+function buildRoadColliderGeometry(curve, width, samples, crossCount, thickness, terrainFn) {
+  const up = new THREE.Vector3(0, 1, 0);
+  const cross = crossCount + 2;
   const ringCount = samples + 1;
-  const total = ringCount * crossCount;
+  const total = ringCount * cross;
+  const wingOffset = width / 2 + 3.5;
   const allPositions = new Float32Array(total * 2 * 3);
-  allPositions.set(top, 0);
+
+  for (let i = 0; i <= samples; i++) {
+    const t = (i % samples) / samples;
+    const center = curve.getPointAt(t);
+    const tangent = curve.getTangentAt(t).normalize();
+    const side = new THREE.Vector3().crossVectors(up, tangent).normalize();
+
+    for (const [wingK, sign] of [[0, -1], [cross - 1, 1]]) {
+      const p = center.clone().addScaledVector(side, sign * wingOffset);
+      p.y = terrainFn(p.x, p.z) - 0.15;
+      const idx = (i * cross + wingK) * 3;
+      allPositions[idx] = p.x;
+      allPositions[idx + 1] = p.y;
+      allPositions[idx + 2] = p.z;
+    }
+    for (let k = 0; k < crossCount; k++) {
+      const u = (k / (crossCount - 1)) * 2 - 1;
+      const dip = DIP_DEPTH * (1 - u * u);
+      const p = center.clone().addScaledVector(side, u * (width / 2));
+      p.y += dip + irregularOffset(t, k);
+      const idx = (i * cross + k + 1) * 3;
+      allPositions[idx] = p.x;
+      allPositions[idx + 1] = p.y;
+      allPositions[idx + 2] = p.z;
+    }
+  }
+
   for (let i = 0; i < total; i++) {
-    allPositions[(total + i) * 3] = top[i * 3];
-    allPositions[(total + i) * 3 + 1] = top[i * 3 + 1] - thickness;
-    allPositions[(total + i) * 3 + 2] = top[i * 3 + 2];
+    allPositions[(total + i) * 3] = allPositions[i * 3];
+    allPositions[(total + i) * 3 + 1] = allPositions[i * 3 + 1] - thickness;
+    allPositions[(total + i) * 3 + 2] = allPositions[i * 3 + 2];
   }
 
   const indices = [];
   for (let i = 0; i < samples; i++) {
-    for (let k = 0; k < crossCount - 1; k++) {
-      const a = i * crossCount + k;
+    for (let k = 0; k < cross - 1; k++) {
+      const a = i * cross + k;
       const b = a + 1;
-      const c = a + crossCount;
+      const c = a + cross;
       const d = c + 1;
       indices.push(a, c, b, b, c, d);
       const ab = total + a;
@@ -172,10 +201,10 @@ function buildRoadColliderGeometry(curve, width, samples, crossCount, thickness)
       indices.push(ab, bb, cb, bb, db, cb);
     }
   }
-  for (const k of [0, crossCount - 1]) {
+  for (const k of [0, cross - 1]) {
     for (let i = 0; i < samples; i++) {
-      const a = i * crossCount + k;
-      const b = a + crossCount;
+      const a = i * cross + k;
+      const b = a + cross;
       const ab = total + a;
       const bb = total + b;
       indices.push(a, ab, b);
@@ -489,7 +518,10 @@ export function createTrack(scene, physics, materials, seed = 1337) {
 
   scene.add(trackGroup);
 
-  const colliderGeometry = buildRoadColliderGeometry(curve, roadWidth, samples, CROSS_COUNT, 0.4);
+  const colliderGeometry = buildRoadColliderGeometry(
+    curve, roadWidth, samples, CROSS_COUNT, 0.8,
+    (x, z) => terrainHeightAt(curve, x, z, baseY)
+  );
   const vertices = new Float32Array(colliderGeometry.attributes.position.array);
   const indices = new Uint32Array(colliderGeometry.index.array);
   const body = physics.world.createRigidBody(physics.RAPIER.RigidBodyDesc.fixed());
@@ -497,7 +529,7 @@ export function createTrack(scene, physics, materials, seed = 1337) {
 
   const groundBody = physics.world.createRigidBody(physics.RAPIER.RigidBodyDesc.fixed());
   physics.world.createCollider(
-    physics.RAPIER.ColliderDesc.cuboid(160, 1, 160).setTranslation(0, roadBox.min.y - 3, 0),
+    physics.RAPIER.ColliderDesc.cuboid(160, 1, 160).setTranslation(0, roadBox.min.y - 5, 0),
     groundBody
   );
 

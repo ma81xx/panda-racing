@@ -58,6 +58,51 @@ body,
   opacity: 0.9;
 }
 
+.hud__cluster {
+  position: absolute;
+  top: 4.2rem;
+  left: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.hud__gear {
+  min-width: 2.5rem;
+  height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+  font-weight: 800;
+  background: rgba(17, 31, 44, 0.6);
+  border: 2px solid rgba(255, 255, 255, 0.6);
+  border-radius: 0.6rem;
+}
+
+.hud__gear.is-reverse {
+  color: #ff5c5c;
+  border-color: #ff5c5c;
+}
+
+.hud__rpm {
+  width: 250px;
+  height: 12px;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.hud__rpm-fill {
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, #4ade80, #facc15 55%, #ef4444 85%);
+}
+
+.hud__rpm-fill.is-redline {
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.9);
+}
+
 .hud__progress {
   position: absolute;
   top: 0;
@@ -96,6 +141,14 @@ body,
 
   .hud__lap {
     font-size: 1rem;
+  }
+
+  .hud__cluster {
+    top: 3.6rem;
+  }
+
+  .hud__rpm {
+    width: 150px;
   }
 }
 

@@ -6,6 +6,8 @@ export function createAudio() {
   let engineFilter = null;
   let screechGain = null;
   let rumbleGain = null;
+  let noiseBuffer = null;
+  let lastGear = 0;
 
   function build() {
     try {
@@ -15,7 +17,7 @@ export function createAudio() {
       return;
     }
 
-    const noiseBuffer = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+    noiseBuffer = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
     const data = noiseBuffer.getChannelData(0);
     for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
 
@@ -64,12 +66,14 @@ export function createAudio() {
   function update(state) {
     if (!ctx) return;
     const t = ctx.currentTime;
-    const speed = Math.min(Math.abs(state.speed || 0), 35);
-    const throttle = Math.max(state.speed || 0, 0) > 0.5 ? 1 : 0;
+    const redline = state.redline || 7200;
+    const rpm = Math.max(0, Math.min(state.rpm || 900, redline));
+    const rpmNorm = Math.min(Math.max((rpm - 900) / Math.max(redline - 900, 1), 0), 1);
 
-    if (engineOsc && engineGain) {
-      engineOsc.frequency.setTargetAtTime(55 + speed * 4, t, 0.05);
-      const engineVol = 0.012 + (throttle ? 0.05 + Math.min(speed, 30) * 0.0012 : 0);
+    if (engineOsc && engineGain && engineFilter) {
+      engineOsc.frequency.setTargetAtTime(rpm / 30, t, 0.03);
+      engineFilter.frequency.setTargetAtTime(420 + rpmNorm * 1800, t, 0.05);
+      const engineVol = 0.015 + rpmNorm * 0.06;
       engineGain.gain.setTargetAtTime(engineVol, t, 0.06);
     }
     if (screechGain) {
@@ -79,6 +83,30 @@ export function createAudio() {
     if (rumbleGain) {
       rumbleGain.gain.setTargetAtTime(state.offRoad ? 0.06 : 0, t, 0.05);
     }
+
+    const gear = state.gear || 0;
+    if (gear !== lastGear) {
+      lastGear = gear;
+      if (gear !== 0) shiftBlip();
+    }
+  }
+
+  function shiftBlip() {
+    if (!ctx || !noiseBuffer) return;
+    const t = ctx.currentTime;
+    const src = ctx.createBufferSource();
+    src.buffer = noiseBuffer;
+    const f = ctx.createBiquadFilter();
+    f.type = 'bandpass';
+    f.frequency.value = 850;
+    f.Q.value = 2;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.11, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
+    src.connect(f).connect(g).connect(ctx.destination);
+    src.start(t);
+    src.stop(t + 0.1);
   }
 
   function impact(intensity) {

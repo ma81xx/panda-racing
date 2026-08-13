@@ -128,6 +128,7 @@ async function bootstrap() {
     b.setRotation({ x: 0, y: Math.sin(yaw / 2), z: 0, w: Math.cos(yaw / 2) }, true);
     b.setLinvel({ x: 0, y: 0, z: 0 }, true);
     b.setAngvel({ x: 0, y: 0, z: 0 }, true);
+    vehicle.resetGearbox();
   }
 
   function respawn() {
@@ -288,7 +289,10 @@ async function bootstrap() {
       time: timing.elapsed,
       best: timing.best,
       progress: timing.progress,
-      pos: vehicle.body.translation()
+      pos: vehicle.body.translation(),
+      gear: vehicle.state.gear,
+      rpm: vehicle.state.rpm,
+      redline: vehicle.state.redline
     });
     shake = Math.max(0, shake - delta * 2.4);
     sky.material.uniforms.time.value += delta;
