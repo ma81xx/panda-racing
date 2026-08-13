@@ -452,14 +452,14 @@ export function createTrack(scene, physics, materials, seed = 1337) {
   for (let i = 0; i < total; i++) {
     const a = (i / total) * Math.PI * 2;
     const radius = 86 + Math.sin(a * 3) * 18 + (random() - 0.5) * 14;
-    const y = Math.sin(a * 2.2) * 1.5 + Math.cos(a * 5) * 0.5;
+    const y = Math.sin(a * 2.2) * 3.0 + Math.cos(a * 5) * 1.0;
     points.push(new THREE.Vector3(Math.cos(a) * radius, y, Math.sin(a) * radius));
   }
   const crestIndexes = [5, 14, 22];
   crestIndexes.forEach((idx) => {
-    points[idx].y += 1.5;
-    points[(idx + 1) % total].y += 2.2;
-    points[(idx + 2) % total].y += 1.2;
+    points[idx].y += 3.0;
+    points[(idx + 1) % total].y += 4.5;
+    points[(idx + 2) % total].y += 2.5;
   });
 
   const curve = new THREE.CatmullRomCurve3(points, true, 'catmullrom', 0.35);
