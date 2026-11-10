@@ -27,11 +27,12 @@ async function bootstrap() {
   const pandaGltf = await loader.loadAsync('models/panda.glb?t=' + Date.now());
   const gui = new GUI({ title: 'Panda Racing Debug' });
   gui.close();
-  const settings = { seed: 1337, audio: true, regenerate: () => resetWorld(settings.seed) };
+  const settings = { seed: 1337, audio: true, engineReal: true, regenerate: () => resetWorld(settings.seed) };
   gui.add(settings, 'seed', 1, 999999, 1);
   gui.add(settings, 'regenerate').name('Rigenera tracciato');
   const audio = createAudio();
   gui.add(settings, 'audio').name('Audio').onChange((v) => audio.setEnabled(v));
+  gui.add(settings, 'engineReal').name('Audio motore reale').onChange((v) => audio.setEngineReal(v));
 
   let track;
   let vehicle;
@@ -165,8 +166,8 @@ async function bootstrap() {
   let shake = 0;
   let dustAccum = 0;
 
-  window.addEventListener('keydown', () => audio.resume(), { once: true });
-  window.addEventListener('pointerdown', () => audio.resume(), { once: true });
+  window.addEventListener('keydown', () => { audio.resume(); audio.playIgnition(); }, { once: true });
+  window.addEventListener('pointerdown', () => { audio.resume(); audio.playIgnition(); }, { once: true });
 
   function detectImpacts() {
     for (const hazardCollider of track.hazards.colliders) {
