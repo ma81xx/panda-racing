@@ -133,5 +133,11 @@ export function createAudio() {
     }
   }
 
-  return { resume, update, impact, setEnabled };
+  function setPaused(value) {
+    if (!ctx) return;
+    if (value && ctx.state === 'running') ctx.suspend().catch(() => {});
+    else if (!value && ctx.state === 'suspended') ctx.resume().catch(() => {});
+  }
+
+  return { resume, update, impact, setEnabled, setPaused };
 }

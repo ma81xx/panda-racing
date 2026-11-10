@@ -32,6 +32,46 @@ body,
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.65);
 }
 
+.pause-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  background: rgba(9, 17, 26, 0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  color: #fff;
+  user-select: none;
+  pointer-events: none;
+}
+
+.pause-overlay[hidden] {
+  display: none;
+}
+
+.pause-overlay__panel {
+  display: grid;
+  gap: 0.4rem;
+  justify-items: center;
+  padding: 1.6rem 2.4rem;
+  border: 0.18rem solid rgba(255, 255, 255, 0.55);
+  border-radius: 1rem;
+  background: rgba(17, 31, 44, 0.72);
+  box-shadow: 0 1rem 2.5rem rgba(0, 0, 0, 0.35);
+}
+
+.pause-overlay__panel strong {
+  font-size: 1.8rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.pause-overlay__panel span {
+  font-size: 0.95rem;
+  opacity: 0.85;
+}
+
 .hud__top {
   position: absolute;
   top: 1rem;
@@ -172,7 +212,86 @@ body,
 }
 
 .touch-controls__cluster--steer {
-  grid-template-columns: repeat(2, 4.25rem);
+  display: flex;
+  align-items: flex-end;
+}
+
+.steer-strip {
+  position: relative;
+  width: 13rem;
+  height: 4.25rem;
+  border: 0.18rem solid rgba(255, 255, 255, 0.72);
+  border-radius: 2.125rem;
+  background: rgba(17, 31, 44, 0.52);
+  box-shadow: 0 0.5rem 1.1rem rgba(0, 0, 0, 0.24), inset 0 0 1.3rem rgba(0, 0, 0, 0.16);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  cursor: pointer;
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.steer-strip::before,
+.steer-strip::after {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  color: rgba(255, 255, 255, 0.44);
+  font: 800 1.15rem/1 system-ui, sans-serif;
+  pointer-events: none;
+}
+
+.steer-strip::before {
+  content: "\2039";
+  left: 0.85rem;
+}
+
+.steer-strip::after {
+  content: "\203A";
+  right: 0.85rem;
+}
+
+.steer-strip__center {
+  position: absolute;
+  top: 20%;
+  bottom: 20%;
+  left: 50%;
+  width: 0.14rem;
+  margin-left: -0.07rem;
+  border-radius: 0.07rem;
+  background: rgba(255, 255, 255, 0.32);
+  pointer-events: none;
+}
+
+.steer-strip__knob {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 2.9rem;
+  height: 2.9rem;
+  margin-top: -1.45rem;
+  transform: translateX(-50%);
+  border: 0.16rem solid rgba(255, 255, 255, 0.85);
+  border-radius: 50%;
+  background: rgba(232, 55, 55, 0.78);
+  box-shadow: 0 0.25rem 0.6rem rgba(0, 0, 0, 0.3);
+  transition: left 0.22s ease-out, transform 0.12s ease-out;
+  pointer-events: none;
+}
+
+.steer-strip.is-dragging .steer-strip__knob {
+  transition: left 0s linear, transform 0.12s ease-out;
+}
+
+.steer-strip.is-active .steer-strip__knob {
+  transform: translateX(-50%) scale(1.06);
+}
+
+.steer-strip:focus-visible {
+  outline: 0.16rem solid rgba(255, 255, 255, 0.9);
+  outline-offset: 0.2rem;
 }
 
 .touch-controls__cluster--drive {
@@ -221,7 +340,7 @@ body,
 
 @media (hover: hover) and (pointer: fine) {
   .touch-controls {
-    opacity: 0.72;
+    display: none;
   }
 }
 
@@ -231,9 +350,20 @@ body,
     bottom: max(0.6rem, env(safe-area-inset-bottom));
   }
 
-  .touch-controls__cluster--steer,
   .touch-controls__cluster--drive {
     grid-template-columns: repeat(2, 3.7rem);
+  }
+
+  .steer-strip {
+    width: 10.5rem;
+    height: 3.7rem;
+    border-radius: 1.85rem;
+  }
+
+  .steer-strip__knob {
+    width: 2.5rem;
+    height: 2.5rem;
+    margin-top: -1.25rem;
   }
 
   .touch-button {

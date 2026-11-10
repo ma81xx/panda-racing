@@ -174,6 +174,12 @@ export function createVehicle(scene, physics, start, tangent, gltfScene, collide
     rearGrip: 0.95,
     offRoadGrip: 0.63,
     maxSteer: 0.55,
+    highSpeedSteer: 0.28,
+    steerSpeed: 12,
+    steerReturn: 20,
+    reverseHold: 0.35,
+    throttleRampUp: 0.15,
+    throttleRampDown: 0.05,
     brakeForce: 16,
     handbrakeForce: 16,
     maxTorque: 85,
@@ -198,6 +204,9 @@ export function createVehicle(scene, physics, start, tangent, gltfScene, collide
   let shiftCooldown = 0;
   let clutchTimer = 0;
   let shifting = false;
+  let reverseHoldTimer = 0;
+  let throttleRamp = 0;
+  let reverseRamp = 0;
 
   function ratioForGear(g) {
     if (g > 0) return GEAR_RATIOS[g - 1];
@@ -229,6 +238,7 @@ export function createVehicle(scene, physics, start, tangent, gltfScene, collide
     currentGear = g;
     shiftCooldown = SHIFT_COOLDOWN;
     clutchTimer = CLUTCH_TIME;
+    if (g < 0) reverseRamp = 0;
   }
 
   function updateGearbox(input, dt, forwardSpeed) {
@@ -242,10 +252,13 @@ export function createVehicle(scene, physics, start, tangent, gltfScene, collide
 
     const absSpeed = Math.abs(forwardSpeed);
     const stopped = absSpeed < 0.8;
+    const throttleDown = input.throttle > 0.1;
+    const brakeDown = input.reverse > 0.1;
 
-    if (input.reverse && stopped) {
-      if (currentGear !== -1 && shiftCooldown <= 0) engageGear(-1);
-    } else if (input.throttle) {
+    if (brakeDown && stopped) reverseHoldTimer += dt;
+    else reverseHoldTimer = 0;
+
+    if (throttleDown) {
       if (currentGear < 1 && shiftCooldown <= 0) {
         engageGear(1);
       } else if (currentGear >= 1 && !shifting && shiftCooldown <= 0) {
@@ -254,6 +267,10 @@ export function createVehicle(scene, physics, start, tangent, gltfScene, collide
         } else if (currentRpm <= tuning.downshiftRPM && currentGear > 1) {
           engageGear(currentGear - 1);
         }
+      }
+    } else if (brakeDown && stopped) {
+      if (reverseHoldTimer >= tuning.reverseHold && currentGear !== -1 && shiftCooldown <= 0) {
+        engageGear(-1);
       }
     } else if (stopped) {
       if (currentGear !== 0 && shiftCooldown <= 0) engageGear(0);
@@ -270,16 +287,23 @@ export function createVehicle(scene, physics, start, tangent, gltfScene, collide
     }
   }
 
-  function engineForce(input) {
+  function engineForce(throttleAmount, reverseAmount) {
     if (shifting) return 0;
     const ratio = ratioForGear(currentGear);
     if (ratio <= 0) return 0;
     const reversing = currentGear < 0;
-    const engaged = reversing ? input.reverse : input.throttle;
-    if (!engaged) return 0;
+    const amount = reversing ? reverseAmount : throttleAmount;
+    if (amount <= 0.01) return 0;
     if (currentRpm >= tuning.redlineRPM) return 0;
     const wheelForce = tuning.maxTorque * torqueFactor(currentRpm) * ratio * tuning.finalDrive / tuning.wheelRadius;
-    return reversing ? -wheelForce : wheelForce;
+    return (reversing ? -wheelForce : wheelForce) * amount;
+  }
+
+  function rampToward(current, target, dt, upTime, downTime) {
+    const rate = target > current ? 1 / Math.max(upTime, 0.001) : 1 / Math.max(downTime, 0.001);
+    const step = rate * dt;
+    if (Math.abs(target - current) <= step) return target;
+    return current + Math.sign(target - current) * step;
   }
 
   function resetGearbox() {
@@ -288,6 +312,9 @@ export function createVehicle(scene, physics, start, tangent, gltfScene, collide
     shiftCooldown = 0;
     clutchTimer = 0;
     shifting = false;
+    reverseHoldTimer = 0;
+    throttleRamp = 0;
+    reverseRamp = 0;
   }
 
   const down = { x: 0, y: -1, z: 0 };
@@ -391,7 +418,7 @@ export function createVehicle(scene, physics, start, tangent, gltfScene, collide
 
       const inContact = state.contactPoints[i] !== null;
       const handbrakeActive = input.handbrake && i >= 2;
-      const hardBrake = input.braking && !input.throttle && state.speed > 3;
+      const hardBrake = input.braking > 0.1 && input.throttle < 0.05 && state.speed > 3;
       const lateral = lateralSlip > 2.2;
       state.skids[i] = inContact && state.speed > 1.5 && (lateral || handbrakeActive || hardBrake);
       state.slips[i] = state.slipAmount;
@@ -415,10 +442,12 @@ export function createVehicle(scene, physics, start, tangent, gltfScene, collide
     const fwdY = 2 * (rot.y * rot.z - rot.w * rot.x);
     const fwdZ = 1 - 2 * (rot.x * rot.x + rot.y * rot.y);
     const forwardSpeed = lin.x * fwdX + lin.y * fwdY + lin.z * fwdZ;
+    throttleRamp = rampToward(throttleRamp, input.throttle, dt, tuning.throttleRampUp, tuning.throttleRampDown);
+    reverseRamp = rampToward(reverseRamp, input.reverse, dt, tuning.throttleRampUp, tuning.throttleRampDown);
     updateGearbox(input, dt, forwardSpeed);
 
-    let driveForce = engineForce(input);
-    if (!input.throttle && !input.reverse && currentGear !== 0 && !shifting && Math.abs(forwardSpeed) > 0.05) {
+    let driveForce = engineForce(throttleRamp, reverseRamp);
+    if (throttleRamp < 0.02 && reverseRamp < 0.02 && currentGear !== 0 && !shifting && Math.abs(forwardSpeed) > 0.05) {
       const ratio = ratioForGear(currentGear);
       if (ratio > 0) {
         const brakeTorque = tuning.engineBrakeTorque * torqueFactor(currentRpm) * ratio * tuning.finalDrive / tuning.wheelRadius;
@@ -426,13 +455,16 @@ export function createVehicle(scene, physics, start, tangent, gltfScene, collide
       }
     }
 
-    const targetSteer = input.steer * tuning.maxSteer;
-    const steerSpeed = 12;
-    currentSteer += (targetSteer - currentSteer) * Math.min(dt * steerSpeed, 1);
+    const speedT = THREE.MathUtils.smoothstep(Math.abs(forwardSpeed), 2, 28);
+    const steerLimit = THREE.MathUtils.lerp(tuning.maxSteer, tuning.highSpeedSteer, speedT);
+    const targetSteer = input.steer * steerLimit;
+    const steerRate = Math.abs(targetSteer) > Math.abs(currentSteer) ? tuning.steerSpeed : tuning.steerReturn;
+    currentSteer += (targetSteer - currentSteer) * Math.min(dt * steerRate, 1);
 
     for (let i = 0; i < 4; i++) {
       const gripScale = appliedSurface[i] === 'dirt' ? tuning.offRoadGrip : 1;
-      const serviceBrake = input.braking && !input.throttle && currentGear >= 0 ? tuning.brakeForce * gripScale : 0;
+      const braking = input.braking > 0.05 && input.throttle < 0.05 && currentGear >= 0;
+      const serviceBrake = braking ? input.braking * tuning.brakeForce * gripScale : 0;
       const handbrake = input.handbrake && i >= 2 ? tuning.handbrakeForce * gripScale : serviceBrake;
       controller.setWheelEngineForce(i, i < 2 ? driveForce * 0.5 : 0);
       controller.setWheelBrake(i, handbrake);
@@ -492,7 +524,10 @@ export function createVehicle(scene, physics, start, tangent, gltfScene, collide
     f.add(tuning, 'frontGrip', 0.2, 3, 0.01);
     f.add(tuning, 'rearGrip', 0.2, 3, 0.01);
     f.add(tuning, 'offRoadGrip', 0.05, 1.2, 0.01).name('grip erba/fango');
-    f.add(tuning, 'maxSteer', 0.1, 1.1, 0.01).name('sterzata');
+    f.add(tuning, 'maxSteer', 0.1, 1.1, 0.01).name('sterzata (lenta)');
+    f.add(tuning, 'highSpeedSteer', 0.05, 0.8, 0.01).name('sterzata (veloce)');
+    f.add(tuning, 'steerSpeed', 2, 40, 0.5).name('rapidità sterzo');
+    f.add(tuning, 'steerReturn', 2, 60, 0.5).name('rientro sterzo');
     f.add(tuning, 'brakeForce', 0, 90, 1).name('freno');
     f.add(tuning, 'handbrakeForce', 0, 120, 1).name('freno a mano');
     f.add(tuning, 'engineBrakeTorque', 0, 60, 1).name('freno motore');
@@ -507,6 +542,9 @@ export function createVehicle(scene, physics, start, tangent, gltfScene, collide
     g.add(tuning, 'redlineRPM', 4000, 10000, 100).name('limitatore RPM');
     g.add(tuning, 'upshiftRPM', 3000, 10000, 100).name('cambio su RPM');
     g.add(tuning, 'downshiftRPM', 1000, 5000, 100).name('scalata RPM');
+    g.add(tuning, 'reverseHold', 0, 1.5, 0.05).name('attesa retromarcia');
+    g.add(tuning, 'throttleRampUp', 0, 0.6, 0.01).name('gas: salita');
+    g.add(tuning, 'throttleRampDown', 0, 0.3, 0.01).name('gas: rilascio');
 
     return f;
   }

@@ -40,6 +40,8 @@ async function bootstrap() {
   let hud;
   let flipTimer = 0;
   let offRoadTimer = 0;
+  let paused = false;
+  const pauseOverlay = document.querySelector('[data-pause]');
   const skidmarks = createSkidMarks(scene);
   const particles = createParticles(scene);
 
@@ -173,6 +175,18 @@ async function bootstrap() {
 
   window.addEventListener('keydown', () => audio.resume(), { once: true });
   window.addEventListener('pointerdown', () => audio.resume(), { once: true });
+  window.addEventListener('keydown', (event) => {
+    if (event.repeat) return;
+    const tag = event.target && event.target.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    if (event.code === 'Escape') {
+      paused = !paused;
+      if (pauseOverlay) pauseOverlay.hidden = !paused;
+      audio.setPaused(paused);
+    } else if (event.code === 'KeyR') {
+      respawn();
+    }
+  });
 
   function detectImpacts() {
     for (const hazardCollider of track.hazards.colliders) {
@@ -265,9 +279,11 @@ async function bootstrap() {
   }
 
   function handleOffRoad(delta) {
-    if (vehicle.state.offRoad) {
+    const st = vehicle.state;
+    const fullyOffRoad = st.surfaces.every((surface) => surface === 'dirt');
+    if (fullyOffRoad) {
       offRoadTimer += delta;
-      if (offRoadTimer > 3) {
+      if (offRoadTimer > 4) {
         offRoadTimer = 0;
         const t = vehicle.body.translation();
         placeCarAt(trackProgress(t.x, t.z));
@@ -280,6 +296,11 @@ async function bootstrap() {
   function animate() {
     requestAnimationFrame(animate);
     const delta = clock.getDelta();
+    input.poll();
+    if (paused) {
+      renderer.render(scene, camera);
+      return;
+    }
     physics.step(delta, (dt) => vehicle.update(input, dt));
     vehicle.sync();
     skidmarks.update(vehicle.state);
