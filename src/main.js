@@ -20,7 +20,7 @@ const SPAWN_CLEARANCE = 0.58;
 
 async function bootstrap() {
   const canvas = document.querySelector('#app');
-  const { scene, renderer, camera, materials, sun, sky } = createScene(canvas);
+  const { scene, renderer, camera, materials, sun, sky, environment } = createScene(canvas);
   const physics = await createPhysics();
   const input = createInput();
 
@@ -157,7 +157,7 @@ async function bootstrap() {
     skidmarks.clear();
     particles.clear();
     track = createTrack(scene, physics, materials, seed);
-    vehicle = createVehicle(scene, physics, spawnPointAt(0), track.tangent, pandaGltf.scene, track.colliders);
+    vehicle = createVehicle(scene, physics, spawnPointAt(0), track.tangent, pandaGltf.scene, track.colliders, environment);
     vehicle.setChassisTransparent(settings.chassisTransparent);
     vehicleGuiFolder = vehicle.addGui(gui);
     buildProgressSamples();
@@ -268,6 +268,7 @@ async function bootstrap() {
       camera.position.z += (Math.random() - 0.5) * shake;
     }
     camera.lookAt(chaseTarget);
+    sky.position.copy(camera.position);
 
     sun.position.copy(car.position).add(sunOffset);
     sun.target.position.copy(car.position);

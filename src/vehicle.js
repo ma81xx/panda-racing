@@ -1,7 +1,9 @@
 import * as THREE from 'three';
 import { syncMeshToBody } from './physics.js';
 
-export function createVehicle(scene, physics, start, tangent, gltfScene, colliders = {}) {
+const baseColors = new WeakMap();
+
+export function createVehicle(scene, physics, start, tangent, gltfScene, colliders = {}, environment = null) {
   const group = new THREE.Group();
   const chassis = new THREE.Group();
 
@@ -139,14 +141,54 @@ export function createVehicle(scene, physics, start, tangent, gltfScene, collide
     ? wheelData.reduce((sum, wheel) => sum + wheel.radius, 0) / wheelData.length
     : 0.42;
 
+  const tunedMaterials = new Set();
   const chassisMeshes = [];
   chassis.traverse((node) => {
     if (!node.isMesh) return;
     node.castShadow = true;
     node.receiveShadow = true;
     chassisMeshes.push(node);
+    const list = Array.isArray(node.material) ? node.material : [node.material];
+    for (const material of list) {
+      if (material && material.name === 'Window' && !tunedMaterials.has(material)) {
+        tunedMaterials.add(material);
+        material.transparent = true;
+        material.opacity = 0.8;
+        material.depthWrite = false;
+        material.color.setHex(0x26343a);
+        material.roughness = 0.06;
+        material.metalness = 0.1;
+        material.needsUpdate = true;
+      }
+    }
     node.userData.opaqueMaterial = node.material;
   });
+
+  if (environment) {
+    const envIntensity = { Carpaint: 0.18, Metal: 0.18, Plastic: 0.2, Tyre: 0.15, Window: 0.08 };
+    group.traverse((node) => {
+      if (!node.isMesh) return;
+      const list = Array.isArray(node.material) ? node.material : [node.material];
+      for (const material of list) {
+        if (!material || !('envMap' in material)) continue;
+        material.envMap = environment;
+        material.envMapIntensity = envIntensity[material.name] ?? 0.18;
+        if (!baseColors.has(material)) baseColors.set(material, material.color.clone());
+        const base = baseColors.get(material);
+        if (material.name === 'Carpaint') {
+          material.color.copy(base).multiplyScalar(0.78);
+          material.metalness = 0.3;
+          material.roughness = 0.35;
+        } else if (material.name === 'Metal') {
+          material.color.copy(base).multiplyScalar(0.7);
+          material.roughness = 0.3;
+        } else if (material.name === 'Window') {
+          material.opacity = 0.8;
+        }
+        material.needsUpdate = true;
+      }
+    });
+  }
 
   function makeTransparentMaterial(material) {
     const clone = material.clone();

@@ -61,19 +61,24 @@ export function createHud(curve) {
   const ox = (W - (maxX - minX) * scale) / 2 - minX * scale;
   const oz = (H - (maxZ - minZ) * scale) / 2 - minZ * scale;
 
+  const trackCanvas = document.createElement('canvas');
+  trackCanvas.width = W;
+  trackCanvas.height = H;
+  const trackCtx = trackCanvas.getContext('2d');
+  trackCtx.strokeStyle = 'rgba(255, 255, 255, 0.38)';
+  trackCtx.lineWidth = 2;
+  trackCtx.beginPath();
+  for (let i = 0; i <= SAMPLES; i++) {
+    const x = pts[i * 3] * scale + ox;
+    const y = pts[i * 3 + 2] * scale + oz;
+    if (i === 0) trackCtx.moveTo(x, y);
+    else trackCtx.lineTo(x, y);
+  }
+  trackCtx.stroke();
+
   function draw(pos, progress) {
     ctx.clearRect(0, 0, W, H);
-
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.38)';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    for (let i = 0; i <= SAMPLES; i++) {
-      const x = pts[i * 3] * scale + ox;
-      const y = pts[i * 3 + 2] * scale + oz;
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    }
-    ctx.stroke();
+    ctx.drawImage(trackCanvas, 0, 0);
 
     const pi = Math.round(progress * SAMPLES);
     if (pi >= 0 && pi <= SAMPLES) {
@@ -89,21 +94,38 @@ export function createHud(curve) {
     ctx.fill();
   }
 
+  const TEXT_INTERVAL = 1000 / 12;
+  let lastText = -Infinity;
+  let lastGear = null;
+  let lastRedline = false;
+
   return {
     update({ lap, time, best, progress, pos, gear, rpm, redline }) {
+      const red = redline || 7200;
+      const pct = Math.min(Math.max(rpm / red, 0), 1);
+      el.progress.style.transform = `scaleX(${progress})`;
+      el.rpm.style.transform = `scaleX(${pct})`;
+      const redlineNow = rpm >= red * 0.85;
+      if (redlineNow !== lastRedline) {
+        el.rpm.classList.toggle('is-redline', redlineNow);
+        lastRedline = redlineNow;
+      }
+
+      draw(pos, progress);
+
+      const now = performance.now();
+      if (now - lastText < TEXT_INTERVAL) return;
+      lastText = now;
+
       el.lap.textContent = String(lap);
       el.time.textContent = fmtTime(time);
       el.best.textContent = best == null ? '\u2014' : fmtTime(best);
-      el.progress.style.width = `${(progress * 100).toFixed(1)}%`;
-
-      el.gear.textContent = gear === 0 ? 'N' : gear < 0 ? 'R' : String(gear);
-      el.gear.classList.toggle('is-reverse', gear < 0);
-      const red = redline || 7200;
-      const pct = Math.min(Math.max((rpm / red) * 100, 0), 100);
-      el.rpm.style.width = `${pct.toFixed(1)}%`;
-      el.rpm.classList.toggle('is-redline', rpm >= red * 0.85);
-
-      draw(pos, progress);
+      const gearText = gear === 0 ? 'N' : gear < 0 ? 'R' : String(gear);
+      if (gearText !== lastGear) {
+        el.gear.textContent = gearText;
+        el.gear.classList.toggle('is-reverse', gear < 0);
+        lastGear = gearText;
+      }
     },
     destroy() {
       root.remove();

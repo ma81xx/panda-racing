@@ -220,40 +220,79 @@ function buildRoadColliderGeometry(curve, width, samples, crossCount, thickness,
 
 const ROAD_HALF = 6;
 const SHOULDER = 16;
+const TRACK_SAMPLES = 520;
 
 function smoothstep(a, b, x) {
   const t = Math.max(0, Math.min(1, (x - a) / (b - a)));
   return t * t * (3 - 2 * t);
 }
 
-function terrainHeightAt(curve, x, z, baseY, samples = 520) {
-  let bestD = Infinity;
-  let bestY = 0;
-  for (let i = 0; i < samples; i++) {
-    const p = curve.getPointAt(i / samples);
-    const dx = p.x - x;
-    const dz = p.z - z;
-    const d = Math.sqrt(dx * dx + dz * dz);
-    if (d < bestD) { bestD = d; bestY = p.y; }
-  }
-  const edgeY = bestY - 0.5;
-  if (bestD < ROAD_HALF) return edgeY;
-  return edgeY + (baseY - edgeY) * smoothstep(ROAD_HALF, ROAD_HALF + SHOULDER, bestD);
+function hash2(x, y) {
+  const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
+  return s - Math.floor(s);
 }
 
-function buildTerrain(curve, baseY) {
+function backgroundHills(x, z) {
+  const r = Math.sqrt(x * x + z * z);
+  const rim = smoothstep(170, 310, r);
+  if (rim <= 0) return 0;
+  const h = 18
+    + Math.sin(x * 0.016 + 1.7) * 10
+    + Math.cos(z * 0.019 - 0.6) * 8
+    + Math.sin((x + z) * 0.011) * 5;
+  return rim * h;
+}
+
+function buildRoadSamples(curve, count) {
+  const samples = new Array(count);
+  for (let i = 0; i < count; i++) samples[i] = curve.getPointAt(i / count);
+  return samples;
+}
+
+function terrainSample(roadSamples, x, z, baseY) {
+  let bestD = Infinity;
+  let bestY = 0;
+  for (let i = 0; i < roadSamples.length; i++) {
+    const p = roadSamples[i];
+    const dx = p.x - x;
+    const dz = p.z - z;
+    const d = dx * dx + dz * dz;
+    if (d < bestD) { bestD = d; bestY = p.y; }
+  }
+  bestD = Math.sqrt(bestD);
+  const edgeY = bestY - 0.5;
+  let y;
+  if (bestD < ROAD_HALF) {
+    y = edgeY;
+  } else {
+    y = edgeY + (baseY - edgeY) * smoothstep(ROAD_HALF, ROAD_HALF + SHOULDER, bestD);
+    if (bestD >= ROAD_HALF + SHOULDER) y += backgroundHills(x, z);
+  }
+  return { y, d: bestD };
+}
+
+function terrainHeightAt(roadSamples, x, z, baseY) {
+  return terrainSample(roadSamples, x, z, baseY).y;
+}
+
+function buildTerrain(roadSamples, baseY) {
   const size = 800;
   const segs = 120;
+  const rows = segs + 1;
   const positions = [];
   const uvs = [];
   const indices = [];
-  const rows = segs + 1;
+  const heights = new Float32Array(rows * rows);
+  const dists = new Float32Array(rows * rows);
   for (let iz = 0; iz <= segs; iz++) {
     const z = -size / 2 + (iz / segs) * size;
     for (let ix = 0; ix <= segs; ix++) {
       const x = -size / 2 + (ix / segs) * size;
-      const y = terrainHeightAt(curve, x, z, baseY);
-      positions.push(x, y, z);
+      const sample = terrainSample(roadSamples, x, z, baseY);
+      const idx = iz * rows + ix;
+      heights[idx] = sample.y;
+      dists[idx] = sample.d;
+      positions.push(x, sample.y, z);
       uvs.push(ix / segs, iz / segs);
     }
   }
@@ -266,9 +305,79 @@ function buildTerrain(curve, baseY) {
       indices.push(a, c, b, b, c, d);
     }
   }
+
+  const colors = new Float32Array(rows * rows * 3);
+  const grassLow = new THREE.Color(0x467f31);
+  const grassHigh = new THREE.Color(0x6f9c44);
+  const dirt = new THREE.Color(0x6f5b40);
+  const rock = new THREE.Color(0x6d6b59);
+  const color = new THREE.Color();
+  const cell = size / segs;
+  for (let iz = 0; iz <= segs; iz++) {
+    const rowNext = Math.min(iz + 1, segs) * rows;
+    const rowPrev = Math.max(iz - 1, 0) * rows;
+    for (let ix = 0; ix <= segs; ix++) {
+      const idx = iz * rows + ix;
+      const y = heights[idx];
+      const left = iz * rows + Math.max(ix - 1, 0);
+      const right = iz * rows + Math.min(ix + 1, segs);
+      const slopeX = (heights[right] - heights[left]) / (2 * cell);
+      const slopeZ = (heights[rowNext + ix] - heights[rowPrev + ix]) / (2 * cell);
+      const slope = Math.sqrt(slopeX * slopeX + slopeZ * slopeZ);
+      const heightT = smoothstep(baseY, baseY + 9, y);
+      const patch = hash2(ix * 3 + 1, iz * 7 + 5);
+      color.copy(grassLow).lerp(grassHigh, heightT * 0.65 + patch * 0.25);
+      const shoulder = 1 - smoothstep(ROAD_HALF + 2, ROAD_HALF + 8, dists[idx]);
+      color.lerp(dirt, shoulder * 0.85);
+      const rocky = smoothstep(0.55, 1.1, slope);
+      color.lerp(rock, rocky * 0.55);
+      const shade = 0.88 + hash2(ix + 11, iz + 3) * 0.12;
+      color.multiplyScalar(shade);
+      colors[idx * 3] = color.r;
+      colors[idx * 3 + 1] = color.g;
+      colors[idx * 3 + 2] = color.b;
+    }
+  }
+
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+function buildRoadSkirt(curve, width, samples, crossCount, terrainFn) {
+  const up = new THREE.Vector3(0, 1, 0);
+  const positions = [];
+  const indices = [];
+  const half = width / 2;
+  const skirtWidth = 0.9;
+  for (let i = 0; i <= samples; i++) {
+    const t = (i % samples) / samples;
+    const center = curve.getPointAt(t);
+    const tangent = curve.getTangentAt(t).normalize();
+    const side = new THREE.Vector3().crossVectors(up, tangent).normalize();
+    for (const sign of [-1, 1]) {
+      const edge = center.clone().addScaledVector(side, sign * half);
+      edge.y += irregularOffset(t, sign < 0 ? 0 : crossCount - 1);
+      const outer = center.clone().addScaledVector(side, sign * (half + skirtWidth));
+      outer.y = terrainFn(outer.x, outer.z) - 0.25;
+      positions.push(edge.x, edge.y, edge.z, outer.x, outer.y, outer.z);
+    }
+    if (i > 0) {
+      const prev = (i - 1) * 4;
+      const curr = i * 4;
+      for (let s = 0; s < 2; s++) {
+        const a = prev + s * 2;
+        const b = curr + s * 2;
+        indices.push(a, b, a + 1, a + 1, b, b + 1);
+      }
+    }
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geometry.setIndex(indices);
   geometry.computeVertexNormals();
   return geometry;
@@ -320,7 +429,7 @@ function bushParts(random) {
   return parts;
 }
 
-function buildPlants(trackGroup, curve, baseY, random, plantCount) {
+function buildPlants(trackGroup, curve, roadSamples, baseY, random, plantCount) {
   const instances = { trunk: [], pine_0: [], pine_1: [], pine_2: [], leaf: [], blob: [], bush: [] };
   const hazardSpots = [];
   const builders = [pineParts, roundTreeParts, bushParts];
@@ -353,7 +462,7 @@ function buildPlants(trackGroup, curve, baseY, random, plantCount) {
     const sign = random() < 0.5 ? -1 : 1;
     const x = p.x + side.x * dist * sign;
     const z = p.z + side.z * dist * sign;
-    const y = terrainHeightAt(curve, x, z, baseY);
+    const y = terrainHeightAt(roadSamples, x, z, baseY);
     const yaw = random() * Math.PI * 2;
     const sc = 0.8 + random() * 0.9;
     const parts = builders[Math.floor(random() * builders.length)](random);
@@ -385,7 +494,7 @@ function buildPlants(trackGroup, curve, baseY, random, plantCount) {
     for (let i = 0; i < list.length; i++) {
       mesh.setMatrixAt(i, list[i].m);
       if (def.colored && list[i].color) {
-        color.setHex(list[i].color).multiplyScalar(0.85 + random() * 0.3);
+        color.setHex(list[i].color).multiplyScalar(0.78 + random() * 0.22);
         mesh.setColorAt(i, color);
       }
     }
@@ -397,7 +506,7 @@ function buildPlants(trackGroup, curve, baseY, random, plantCount) {
   return hazardSpots;
 }
 
-function buildGrass(trackGroup, curve, baseY, random, count) {
+function buildGrass(trackGroup, curve, roadSamples, baseY, random, count) {
   const bladeGeo = new THREE.BufferGeometry();
   bladeGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array([
     -0.05, 0, 0,
@@ -430,13 +539,13 @@ function buildGrass(trackGroup, curve, baseY, random, count) {
     const sign = random() < 0.5 ? -1 : 1;
     const x = p.x + sideV.x * dist * sign;
     const z = p.z + sideV.z * dist * sign;
-    const y = terrainHeightAt(curve, x, z, baseY);
+    const y = terrainHeightAt(roadSamples, x, z, baseY);
     const sc = 0.7 + random() * 0.9;
     euler.set(0, random() * Math.PI * 2, (random() - 0.5) * 0.3);
     quat.setFromEuler(euler);
     m4.compose(pos.set(x, y, z), quat, scl.set(sc, sc, sc));
     mesh.setMatrixAt(i, m4);
-    color.setHex(random() < 0.5 ? 0x4d9e33 : 0x6cbd45).multiplyScalar(0.85 + random() * 0.3);
+    color.setHex(random() < 0.5 ? 0x4d9e33 : 0x6cbd45).multiplyScalar(0.78 + random() * 0.22);
     mesh.setColorAt(i, color);
   }
   mesh.instanceMatrix.needsUpdate = true;
@@ -470,7 +579,8 @@ export function createTrack(scene, physics, materials, seed = 1337) {
   }
 
   const roadWidth = 12;
-  const samples = 520;
+  const samples = TRACK_SAMPLES;
+  const roadSamples = buildRoadSamples(curve, samples);
   const roadGeometry = buildRoadGeometry(curve, roadWidth, samples, CROSS_COUNT);
 
   const road = new THREE.Mesh(roadGeometry, new THREE.MeshStandardMaterial({
@@ -492,11 +602,27 @@ export function createTrack(scene, physics, materials, seed = 1337) {
   const roadBox = new THREE.Box3().setFromBufferAttribute(roadGeometry.attributes.position);
   const baseY = roadBox.min.y - 2;
 
-  const terrainMat = new THREE.MeshStandardMaterial({ color: 0x5f9f41, roughness: 1, flatShading: true });
-  const terrainGeometry = buildTerrain(curve, baseY);
+  const terrainMat = new THREE.MeshStandardMaterial({
+    vertexColors: true,
+    roughness: 1,
+    metalness: 0
+  });
+  const terrainGeometry = buildTerrain(roadSamples, baseY);
   const terrain = new THREE.Mesh(terrainGeometry, terrainMat);
   terrain.receiveShadow = true;
   trackGroup.add(terrain);
+
+  const terrainFn = (x, z) => terrainHeightAt(roadSamples, x, z, baseY);
+  const skirt = new THREE.Mesh(
+    buildRoadSkirt(curve, roadWidth, samples, CROSS_COUNT, terrainFn),
+    new THREE.MeshStandardMaterial({
+      color: 0x6f5b40,
+      roughness: 1,
+      side: THREE.DoubleSide
+    })
+  );
+  skirt.receiveShadow = true;
+  trackGroup.add(skirt);
 
   const terrainBody = physics.world.createRigidBody(physics.RAPIER.RigidBodyDesc.fixed());
   const terrainCollider = physics.world.createCollider(
@@ -509,8 +635,8 @@ export function createTrack(scene, physics, materials, seed = 1337) {
   terrainCollider.setFriction(0.35);
 
   const plantCount = 600;
-  const hazardSpots = buildPlants(trackGroup, curve, baseY, random, plantCount);
-  buildGrass(trackGroup, curve, baseY, random, 1800);
+  const hazardSpots = buildPlants(trackGroup, curve, roadSamples, baseY, random, plantCount);
+  buildGrass(trackGroup, curve, roadSamples, baseY, random, 1800);
 
   const hazardColliders = [];
   for (const [x, y, z] of hazardSpots) {
@@ -526,7 +652,7 @@ export function createTrack(scene, physics, materials, seed = 1337) {
 
   const colliderGeometry = buildRoadColliderGeometry(
     curve, roadWidth, samples, CROSS_COUNT, 0.8,
-    (x, z) => terrainHeightAt(curve, x, z, baseY)
+    terrainFn
   );
   const vertices = new Float32Array(colliderGeometry.attributes.position.array);
   const indices = new Uint32Array(colliderGeometry.index.array);

@@ -8,7 +8,8 @@ const LIFT = 0.02;
 export function createSkidMarks(scene) {
   const geometry = new THREE.BufferGeometry();
   const positions = new Float32Array(MAX_SEGMENTS * 4 * 3);
-  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  const positionAttr = new THREE.BufferAttribute(positions, 3);
+  geometry.setAttribute('position', positionAttr);
   geometry.setDrawRange(0, 0);
 
   const indices = new Uint32Array(MAX_SEGMENTS * 6);
@@ -45,15 +46,15 @@ export function createSkidMarks(scene) {
   const perp = new THREE.Vector3();
 
   function writeSegment(p0, p1) {
+    dir.subVectors(p1, p0);
+    const len = dir.length();
+    if (len < 1e-4) return false;
+    dir.divideScalar(len);
+    perp.crossVectors(dir, up).normalize();
+
     if (count < MAX_SEGMENTS) count++;
     const slot = cursor % MAX_SEGMENTS;
     cursor++;
-
-    dir.subVectors(p1, p0);
-    const len = dir.length();
-    if (len < 1e-4) return;
-    dir.divideScalar(len);
-    perp.crossVectors(dir, up).normalize();
 
     const hw = WIDTH / 2;
     const o = slot * 4 * 3;
@@ -69,9 +70,12 @@ export function createSkidMarks(scene) {
     positions[o + 9] = p1.x - perp.x * hw;
     positions[o + 10] = p1.y + LIFT;
     positions[o + 11] = p1.z - perp.z * hw;
+    positionAttr.addUpdateRange(o, 12);
+    return true;
   }
 
   function update(state) {
+    let wrote = false;
     for (let i = 0; i < WHEEL_COUNT; i++) {
       const p = state.contactPoints[i];
       if (!p) {
@@ -80,7 +84,7 @@ export function createSkidMarks(scene) {
       }
       if (state.skids[i]) {
         if (last[i] && last[i].distanceTo(p) > 0.04) {
-          writeSegment(last[i], p);
+          wrote = writeSegment(last[i], p) || wrote;
         }
         last[i] = p.clone();
       } else {
@@ -88,14 +92,14 @@ export function createSkidMarks(scene) {
       }
     }
     geometry.setDrawRange(0, count * 4);
-    geometry.attributes.position.needsUpdate = true;
-    geometry.computeBoundingSphere();
+    if (wrote) positionAttr.needsUpdate = true;
   }
 
   function clear() {
     cursor = 0;
     count = 0;
     last.fill(null);
+    positionAttr.clearUpdateRanges();
     geometry.setDrawRange(0, 0);
   }
 
