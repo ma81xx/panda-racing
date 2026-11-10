@@ -463,6 +463,12 @@ export function createTrack(scene, physics, materials, seed = 1337) {
   });
 
   const curve = new THREE.CatmullRomCurve3(points, true, 'catmullrom', 0.35);
+
+  function roadSurfaceHeightAt(t) {
+    const p = curve.getPointAt(t);
+    return p.y + DIP_DEPTH + irregularOffset(t, (CROSS_COUNT - 1) / 2);
+  }
+
   const roadWidth = 12;
   const samples = 520;
   const roadGeometry = buildRoadGeometry(curve, roadWidth, samples, CROSS_COUNT);
@@ -540,6 +546,7 @@ export function createTrack(scene, physics, materials, seed = 1337) {
     curve,
     start: curve.getPointAt(0),
     tangent: curve.getTangentAt(0),
+    roadSurfaceHeightAt,
     body,
     colliders: { road: roadCollider, terrain: terrainCollider },
     hazards: { colliders: hazardColliders }

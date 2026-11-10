@@ -36,41 +36,108 @@ export function createVehicle(scene, physics, start, tangent, gltfScene, collide
 
   const wheelNodes = [];
   model.traverse((node) => {
-    if (node.name === 'Circle_7' || node.name === 'Circle.001_9') {
+    if (node.name === 'Circle_7' || node.name === 'Circle001_9' || node.name === 'Circle.001_9') {
       wheelNodes.push(node);
     }
   });
 
-  wheelNodes.forEach((node) => {
-    const worldPos = new THREE.Vector3();
-    const worldQuat = new THREE.Quaternion();
-    node.getWorldPosition(worldPos);
-    node.getWorldQuaternion(worldQuat);
+  const tmpPos = new THREE.Vector3();
+  const tmpNrm = new THREE.Vector3();
+  const normalMat = new THREE.Matrix3();
 
-    const meshBbox = new THREE.Box3();
-    node.traverse((child) => { if (child.isMesh) meshBbox.expandByObject(child); });
-    const meshCenter = new THREE.Vector3();
-    meshBbox.getCenter(meshCenter);
+  for (const node of wheelNodes) {
+    const meshes = [];
+    node.traverse((child) => { if (child.isMesh) meshes.push(child); });
 
-    const pivot = new THREE.Group();
-    pivot.position.copy(meshCenter);
+    const sides = [0, 1].map(() => ({
+      min: new THREE.Vector3(Infinity, Infinity, Infinity),
+      max: new THREE.Vector3(-Infinity, -Infinity, -Infinity),
+      meshes: []
+    }));
 
-    const orientation = new THREE.Group();
-    orientation.quaternion.copy(worldQuat);
-    pivot.add(orientation);
+    for (const mesh of meshes) {
+      mesh.updateWorldMatrix(true, false);
+      normalMat.getNormalMatrix(mesh.matrixWorld);
+      const geometry = mesh.geometry;
+      const posAttr = geometry.getAttribute('position');
+      const nrmAttr = geometry.getAttribute('normal');
+      const uvAttr = geometry.getAttribute('uv');
+      const index = geometry.getIndex();
+      const triangleCount = index ? index.count / 3 : posAttr.count / 3;
+      const buffers = [0, 1].map(() => ({ positions: [], normals: [], uvs: [] }));
 
-    const spinner = new THREE.Group();
-    orientation.add(spinner);
+      for (let t = 0; t < triangleCount; t++) {
+        const ia = index ? index.getX(t * 3) : t * 3;
+        const ib = index ? index.getX(t * 3 + 1) : t * 3 + 1;
+        const ic = index ? index.getX(t * 3 + 2) : t * 3 + 2;
+        tmpPos.fromBufferAttribute(posAttr, ia).applyMatrix4(mesh.matrixWorld);
+        let cx = tmpPos.x;
+        tmpPos.fromBufferAttribute(posAttr, ib).applyMatrix4(mesh.matrixWorld);
+        cx += tmpPos.x;
+        tmpPos.fromBufferAttribute(posAttr, ic).applyMatrix4(mesh.matrixWorld);
+        cx += tmpPos.x;
+        const target = buffers[cx < 0 ? 0 : 1];
+        for (const idx of [ia, ib, ic]) {
+          tmpPos.fromBufferAttribute(posAttr, idx).applyMatrix4(mesh.matrixWorld);
+          target.positions.push(tmpPos.x, tmpPos.y, tmpPos.z);
+          if (nrmAttr) {
+            tmpNrm.fromBufferAttribute(nrmAttr, idx).applyMatrix3(normalMat).normalize();
+            target.normals.push(tmpNrm.x, tmpNrm.y, tmpNrm.z);
+          }
+          if (uvAttr) target.uvs.push(uvAttr.getX(idx), uvAttr.getY(idx));
+        }
+      }
 
-    while (node.children.length > 0) {
-      spinner.attach(node.children[0]);
+      for (let s = 0; s < 2; s++) {
+        const data = buffers[s];
+        if (!data.positions.length) continue;
+        const side = sides[s];
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.Float32BufferAttribute(data.positions, 3));
+        if (data.normals.length) geo.setAttribute('normal', new THREE.Float32BufferAttribute(data.normals, 3));
+        else geo.computeVertexNormals();
+        if (data.uvs.length) geo.setAttribute('uv', new THREE.Float32BufferAttribute(data.uvs, 2));
+        const splitMesh = new THREE.Mesh(geo, mesh.material);
+        splitMesh.castShadow = true;
+        splitMesh.receiveShadow = true;
+        side.meshes.push(splitMesh);
+        for (let k = 0; k < data.positions.length; k += 3) {
+          tmpPos.set(data.positions[k], data.positions[k + 1], data.positions[k + 2]);
+          side.min.min(tmpPos);
+          side.max.max(tmpPos);
+        }
+      }
     }
 
     node.removeFromParent();
-    group.add(pivot);
 
-    wheelData.push({ pivot, spinner, baseY: pivot.position.y });
+    for (const side of sides) {
+      if (!side.meshes.length) continue;
+      const center = new THREE.Vector3().addVectors(side.min, side.max).multiplyScalar(0.5);
+      const radius = (side.max.y - side.min.y) * 0.5;
+      const pivot = new THREE.Group();
+      pivot.position.copy(center);
+      const spinner = new THREE.Group();
+      pivot.add(spinner);
+      for (const splitMesh of side.meshes) {
+        splitMesh.position.copy(center).negate();
+        spinner.add(splitMesh);
+      }
+      group.add(pivot);
+      wheelData.push({ pivot, spinner, position: center.clone(), radius, baseY: center.y });
+    }
+  }
+
+  wheelData.sort((a, b) => {
+    const af = a.position.z > 0 ? 0 : 1;
+    const bf = b.position.z > 0 ? 0 : 1;
+    if (af !== bf) return af - bf;
+    return a.position.x - b.position.x;
   });
+
+  const wheelRadiusAvg = wheelData.length
+    ? wheelData.reduce((sum, wheel) => sum + wheel.radius, 0) / wheelData.length
+    : 0.42;
 
   model.traverse((node) => {
     if (!node.isMesh) return;
@@ -80,21 +147,17 @@ export function createVehicle(scene, physics, start, tangent, gltfScene, collide
 
   scene.add(group);
 
-  const wheelPositions = [
-    [-1.18, 0.25, 1.12], [1.18, 0.25, 1.12],
-    [-1.18, 0.25, -1.16], [1.18, 0.25, -1.16]
-  ];
-
   const bodyDesc = physics.RAPIER.RigidBodyDesc.dynamic()
-    .setTranslation(start.x, start.y + 0.55, start.z)
+    .setTranslation(start.x, start.y, start.z)
     .setCanSleep(false)
-    .setCcdEnabled(true)
-    .setLinearDamping(0.15)
-    .setAngularDamping(0.4);
+    .setCcdEnabled(true);
   const yaw = Math.atan2(tangent.x, tangent.z);
   bodyDesc.setRotation({ x: 0, y: Math.sin(yaw / 2), z: 0, w: Math.cos(yaw / 2) });
   const body = physics.world.createRigidBody(bodyDesc);
-  const bodyCollider = physics.world.createCollider(physics.RAPIER.ColliderDesc.cuboid(1.1, 0.55, 1.75).setDensity(100), body);
+  const bodyCollider = physics.world.createCollider(
+    physics.RAPIER.ColliderDesc.cuboid(1.1, 0.4, 2.0).setDensity(120).setTranslation(0, 0.08, 0),
+    body
+  );
 
   const controller = physics.world.createVehicleController(body);
   controller.indexUpAxis = 1;
@@ -105,20 +168,24 @@ export function createVehicle(scene, physics, start, tangent, gltfScene, collide
     maxSuspensionTravel: 0.42,
     dampingCompression: 6,
     dampingRelaxation: 8,
-    frictionSlip: 1.45,
-    wheelRadius: 0.42,
-    frontGrip: 1.35,
-    rearGrip: 1.15,
-    offRoadGrip: 0.5,
+    frictionSlip: 0.95,
+    wheelRadius: wheelRadiusAvg,
+    frontGrip: 1.0,
+    rearGrip: 0.95,
+    offRoadGrip: 0.63,
     maxSteer: 0.55,
-    brakeForce: 28,
-    handbrakeForce: 55,
-    maxTorque: 160,
+    brakeForce: 16,
+    handbrakeForce: 16,
+    maxTorque: 85,
     idleRPM: 900,
     redlineRPM: 7200,
     upshiftRPM: 6800,
     downshiftRPM: 2600,
-    finalDrive: 4.0
+    finalDrive: 4.0,
+    engineBrakeTorque: 20,
+    rollingResistance: 0.015,
+    dirtRollingResistance: 0.06,
+    aeroDrag: 0.6
   };
 
   const GEAR_RATIOS = [6.0, 4.0, 2.9, 2.2, 1.75];
@@ -225,7 +292,13 @@ export function createVehicle(scene, physics, start, tangent, gltfScene, collide
 
   const down = { x: 0, y: -1, z: 0 };
   const axle = { x: -1, y: 0, z: 0 };
-  wheelPositions.forEach(([x, y, z]) => controller.addWheel({ x, y, z }, down, axle, tuning.suspensionRestLength, tuning.wheelRadius));
+  wheelData.forEach((wheel) => controller.addWheel(
+    { x: wheel.position.x, y: wheel.position.y + tuning.suspensionRestLength, z: wheel.position.z },
+    down,
+    axle,
+    tuning.suspensionRestLength,
+    tuning.wheelRadius
+  ));
 
   let lastTuningKey = '';
   const appliedSurface = ['road', 'road', 'road', 'road'];
@@ -260,7 +333,6 @@ export function createVehicle(scene, physics, start, tangent, gltfScene, collide
   syncTuning();
 
   let currentSteer = 0;
-  let wheelSpin = 0;
 
   const state = {
     speed: 0,
@@ -345,16 +417,40 @@ export function createVehicle(scene, physics, start, tangent, gltfScene, collide
     const forwardSpeed = lin.x * fwdX + lin.y * fwdY + lin.z * fwdZ;
     updateGearbox(input, dt, forwardSpeed);
 
-    const engine = engineForce(input);
+    let driveForce = engineForce(input);
+    if (!input.throttle && !input.reverse && currentGear !== 0 && !shifting && Math.abs(forwardSpeed) > 0.05) {
+      const ratio = ratioForGear(currentGear);
+      if (ratio > 0) {
+        const brakeTorque = tuning.engineBrakeTorque * torqueFactor(currentRpm) * ratio * tuning.finalDrive / tuning.wheelRadius;
+        driveForce = -Math.sign(forwardSpeed) * brakeTorque;
+      }
+    }
+
     const targetSteer = input.steer * tuning.maxSteer;
     const steerSpeed = 12;
     currentSteer += (targetSteer - currentSteer) * Math.min(dt * steerSpeed, 1);
-    const brake = input.braking && !input.throttle && currentGear >= 0 ? tuning.brakeForce : 0;
+
     for (let i = 0; i < 4; i++) {
-      controller.setWheelEngineForce(i, i < 2 ? engine : engine * 0.25);
-      controller.setWheelBrake(i, input.handbrake && i >= 2 ? tuning.handbrakeForce : brake);
+      const gripScale = appliedSurface[i] === 'dirt' ? tuning.offRoadGrip : 1;
+      const serviceBrake = input.braking && !input.throttle && currentGear >= 0 ? tuning.brakeForce * gripScale : 0;
+      const handbrake = input.handbrake && i >= 2 ? tuning.handbrakeForce * gripScale : serviceBrake;
+      controller.setWheelEngineForce(i, i < 2 ? driveForce * 0.5 : 0);
+      controller.setWheelBrake(i, handbrake);
       controller.setWheelSteering(i, i < 2 ? currentSteer : 0);
     }
+
+    const grounded = state.contactPoints.some((point) => point !== null);
+    const horizontalSpeed = Math.hypot(lin.x, lin.z);
+    if (horizontalSpeed > 0.01) {
+      let resistance = tuning.aeroDrag * horizontalSpeed * horizontalSpeed;
+      if (grounded) {
+        const rolling = state.offRoad ? tuning.dirtRollingResistance : tuning.rollingResistance;
+        resistance += rolling * body.mass() * 9.81;
+      }
+      const impulse = -resistance * dt / horizontalSpeed;
+      body.applyImpulse({ x: lin.x * impulse, y: 0, z: lin.z * impulse }, true);
+    }
+
     controller.updateVehicle(dt);
     readState(input);
   }
@@ -380,12 +476,8 @@ export function createVehicle(scene, physics, start, tangent, gltfScene, collide
       wd.pivot.position.y = wd.baseY + state.compressions[i];
       wd.pivot.rotation.y = i < 2 ? currentSteer : 0;
       const rot = controller.wheelRotation(i);
-      if (rot != null) {
-        wheelSpin = rot;
-      } else {
-        wheelSpin += (state.speed * 0.016) / tuning.wheelRadius;
-      }
-      wd.spinner.rotation.y = wheelSpin;
+      const spin = rot != null ? rot : (state.speed * 0.016) / tuning.wheelRadius;
+      wd.spinner.rotation.x = -spin;
     });
   }
 
@@ -397,13 +489,16 @@ export function createVehicle(scene, physics, start, tangent, gltfScene, collide
     f.add(tuning, 'dampingCompression', 0.5, 10, 0.1);
     f.add(tuning, 'dampingRelaxation', 0.5, 12, 0.1);
     f.add(tuning, 'frictionSlip', 0.2, 4, 0.01);
-    f.add(tuning, 'wheelRadius', 0.25, 0.75, 0.01);
     f.add(tuning, 'frontGrip', 0.2, 3, 0.01);
     f.add(tuning, 'rearGrip', 0.2, 3, 0.01);
     f.add(tuning, 'offRoadGrip', 0.05, 1.2, 0.01).name('grip erba/fango');
     f.add(tuning, 'maxSteer', 0.1, 1.1, 0.01).name('sterzata');
     f.add(tuning, 'brakeForce', 0, 90, 1).name('freno');
     f.add(tuning, 'handbrakeForce', 0, 120, 1).name('freno a mano');
+    f.add(tuning, 'engineBrakeTorque', 0, 60, 1).name('freno motore');
+    f.add(tuning, 'rollingResistance', 0, 0.05, 0.005).name('rotolamento asfalto');
+    f.add(tuning, 'dirtRollingResistance', 0, 0.2, 0.005).name('rotolamento terra');
+    f.add(tuning, 'aeroDrag', 0, 2, 0.05).name('drag aerodinamico');
 
     const g = f.addFolder('Cambio');
     g.add(tuning, 'maxTorque', 40, 400, 5).name('coppia motore (Nm)');

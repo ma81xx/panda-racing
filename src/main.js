@@ -16,6 +16,7 @@ import './style.css';
 const PROGRESS_SAMPLES = 600;
 const CAM_STIFFNESS = 70;
 const CAM_DAMPING = 16;
+const SPAWN_CLEARANCE = 0.58;
 
 async function bootstrap() {
   const canvas = document.querySelector('#app');
@@ -119,12 +120,17 @@ async function bootstrap() {
     timing.elapsed += delta;
   }
 
+  function spawnPointAt(t) {
+    const p = track.curve.getPointAt(t);
+    return new THREE.Vector3(p.x, track.roadSurfaceHeightAt(t) + SPAWN_CLEARANCE, p.z);
+  }
+
   function placeCarAt(t) {
     const b = vehicle.body;
-    const p = track.curve.getPointAt(t);
+    const p = spawnPointAt(t);
     const tan = track.curve.getTangentAt(t).normalize();
     const yaw = Math.atan2(tan.x, tan.z);
-    b.setTranslation({ x: p.x, y: p.y + 0.55, z: p.z }, true);
+    b.setTranslation({ x: p.x, y: p.y, z: p.z }, true);
     b.setRotation({ x: 0, y: Math.sin(yaw / 2), z: 0, w: Math.cos(yaw / 2) }, true);
     b.setLinvel({ x: 0, y: 0, z: 0 }, true);
     b.setAngvel({ x: 0, y: 0, z: 0 }, true);
@@ -146,7 +152,7 @@ async function bootstrap() {
     skidmarks.clear();
     particles.clear();
     track = createTrack(scene, physics, materials, seed);
-    vehicle = createVehicle(scene, physics, track.start, track.tangent, pandaGltf.scene, track.colliders);
+    vehicle = createVehicle(scene, physics, spawnPointAt(0), track.tangent, pandaGltf.scene, track.colliders);
     vehicleGuiFolder = vehicle.addGui(gui);
     buildProgressSamples();
     resetTiming();
