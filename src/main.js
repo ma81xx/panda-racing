@@ -28,8 +28,11 @@ async function bootstrap() {
   const pandaGltf = await loader.loadAsync('models/panda.glb?t=' + Date.now());
   const gui = new GUI({ title: 'Panda Racing Debug' });
   gui.close();
-  const settings = { seed: 1337, audio: true, regenerate: () => resetWorld(settings.seed) };
+  const settings = { seed: 1337, audio: true, chassisTransparent: false, regenerate: () => resetWorld(settings.seed) };
   gui.add(settings, 'seed', 1, 999999, 1);
+  gui.add(settings, 'chassisTransparent').name('Chassis trasparente').onChange((v) => {
+    if (vehicle) vehicle.setChassisTransparent(v);
+  });
   gui.add(settings, 'regenerate').name('Rigenera tracciato');
   const audio = createAudio();
   gui.add(settings, 'audio').name('Audio').onChange((v) => audio.setEnabled(v));
@@ -155,6 +158,7 @@ async function bootstrap() {
     particles.clear();
     track = createTrack(scene, physics, materials, seed);
     vehicle = createVehicle(scene, physics, spawnPointAt(0), track.tangent, pandaGltf.scene, track.colliders);
+    vehicle.setChassisTransparent(settings.chassisTransparent);
     vehicleGuiFolder = vehicle.addGui(gui);
     buildProgressSamples();
     resetTiming();

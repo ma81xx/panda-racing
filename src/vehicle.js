@@ -139,11 +139,39 @@ export function createVehicle(scene, physics, start, tangent, gltfScene, collide
     ? wheelData.reduce((sum, wheel) => sum + wheel.radius, 0) / wheelData.length
     : 0.42;
 
-  model.traverse((node) => {
+  const chassisMeshes = [];
+  chassis.traverse((node) => {
     if (!node.isMesh) return;
     node.castShadow = true;
     node.receiveShadow = true;
+    chassisMeshes.push(node);
+    node.userData.opaqueMaterial = node.material;
   });
+
+  function makeTransparentMaterial(material) {
+    const clone = material.clone();
+    clone.transparent = true;
+    clone.opacity = 0.28;
+    clone.depthWrite = false;
+    clone.needsUpdate = true;
+    return clone;
+  }
+
+  function setChassisTransparent(enabled) {
+    for (const mesh of chassisMeshes) {
+      if (enabled) {
+        if (!mesh.userData.transparentMaterial) {
+          const base = mesh.userData.opaqueMaterial;
+          mesh.userData.transparentMaterial = Array.isArray(base)
+            ? base.map(makeTransparentMaterial)
+            : makeTransparentMaterial(base);
+        }
+        mesh.material = mesh.userData.transparentMaterial;
+      } else {
+        mesh.material = mesh.userData.opaqueMaterial;
+      }
+    }
+  }
 
   scene.add(group);
 
@@ -549,5 +577,5 @@ export function createVehicle(scene, physics, start, tangent, gltfScene, collide
     return f;
   }
 
-  return { group, chassis, body, bodyCollider, controller, tuning, state, update, sync, addGui, resetGearbox };
+  return { group, chassis, body, bodyCollider, controller, tuning, state, update, sync, addGui, resetGearbox, setChassisTransparent };
 }
