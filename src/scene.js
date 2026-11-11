@@ -3,6 +3,41 @@ import { Sky } from 'three/examples/jsm/objects/Sky.js';
 
 const MAX_PIXEL_RATIO = 1.5;
 
+function isEnvironmentUsable(renderer, environment) {
+  const probeScene = new THREE.Scene();
+  const probeCamera = new THREE.PerspectiveCamera(45, 1, 0.1, 10);
+  probeCamera.position.z = 2.5;
+  const geometry = new THREE.SphereGeometry(1, 16, 10);
+  const material = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    metalness: 1,
+    roughness: 0.1,
+    envMap: environment
+  });
+  probeScene.add(new THREE.Mesh(geometry, material));
+
+  const target = new THREE.WebGLRenderTarget(8, 8);
+  const previousTarget = renderer.getRenderTarget();
+  let usable = false;
+  try {
+    renderer.setRenderTarget(target);
+    renderer.render(probeScene, probeCamera);
+    const pixels = new Uint8Array(8 * 8 * 4);
+    renderer.readRenderTargetPixels(target, 0, 0, 8, 8, pixels);
+    let sum = 0;
+    for (let i = 0; i < pixels.length; i += 4) sum += pixels[i] + pixels[i + 1] + pixels[i + 2];
+    usable = sum > 256;
+  } catch (error) {
+    usable = false;
+  } finally {
+    renderer.setRenderTarget(previousTarget);
+    target.dispose();
+    geometry.dispose();
+    material.dispose();
+  }
+  return usable;
+}
+
 export function createScene(canvas) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0xbfd9f2);
@@ -67,10 +102,14 @@ export function createScene(canvas) {
   skyUniforms.cloudCoverage.value = 0;
   const envTarget = pmrem.fromScene(envScene, 0, 1, 1000);
   skyUniforms.cloudCoverage.value = cloudCoverage;
-  const environment = envTarget.texture;
+  let environment = envTarget.texture;
   pmrem.dispose();
   envGround.geometry.dispose();
   envGround.material.dispose();
+  if (!isEnvironmentUsable(renderer, environment)) {
+    envTarget.dispose();
+    environment = null;
+  }
 
   const materials = {
     road: new THREE.MeshStandardMaterial({ color: 0x343840, roughness: 0.9, flatShading: true }),

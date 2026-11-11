@@ -236,6 +236,25 @@ async function bootstrap() {
   renderer.render(scene, camera);
 
   const debug = createDebugRenderer(scene, physics.world, gui, renderer);
+  debug.info.environment = environment ? 'attivo' : 'disattivato (fallback)';
+
+  function hasShaderErrors() {
+    const programs = renderer.info.programs;
+    if (!programs) return false;
+    for (const program of programs) {
+      if (!program.diagnostics) continue;
+      console.error('Shader error', program.diagnostics);
+      return true;
+    }
+    return false;
+  }
+
+  if (environment && hasShaderErrors()) {
+    vehicle.setEnvMapEnabled(false);
+    renderer.compile(scene, camera);
+    debug.info.environment = 'disattivato (shader)';
+  }
+
   const clock = new THREE.Clock();
 
   document.addEventListener('visibilitychange', () => {

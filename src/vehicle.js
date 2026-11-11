@@ -695,7 +695,7 @@ export function createVehicle(scene, physics, start, tangent, gltfScene, collide
     g.add(tuning, 'throttleRampDown', 0, 0.3, 0.01).name('gas: rilascio');
 
     const d = f.addFolder('Diagnostica auto');
-    const diag = { envMap: true, shadows: true, material: 'off' };
+    const diag = { envMap: envMaterials.size > 0, shadows: true, material: 'off' };
     d.add(diag, 'envMap').name('Env map').onChange((value) => setEnvMapEnabled(value));
     d.add(diag, 'shadows').name('Ombre auto').onChange((value) => setShadowsEnabled(value));
     d.add(diag, 'material', ['off', 'basic', 'normal']).name('Materiale').onChange((value) => setMaterialOverride(value));

@@ -27,6 +27,7 @@ export function createDebugRenderer(scene, world, gui, renderer) {
     precision: renderer.capabilities.precision,
     fragmentHighp: highpFormat && highpFormat.precision > 0 ? `sì (${highpFormat.precision})` : 'no',
     userAgent: navigator.userAgent,
+    environment: '...',
     pixelRatio: renderer.getPixelRatio().toFixed(2),
     drawingBuffer: '',
     maxTextureSize: renderer.capabilities.maxTextureSize,
@@ -35,6 +36,8 @@ export function createDebugRenderer(scene, world, gui, renderer) {
     geometries: 0,
     textures: 0,
     programs: 0,
+    shaderErrors: 0,
+    shaderLog: '',
     colorBufferHalfFloat: extensionState(gl, 'EXT_color_buffer_half_float'),
     colorBufferFloat: extensionState(gl, 'EXT_color_buffer_float'),
     halfFloatLinear: extensionState(gl, 'OES_texture_half_float_linear'),
@@ -61,11 +64,14 @@ export function createDebugRenderer(scene, world, gui, renderer) {
   add('geometries', 'Geometrie');
   add('textures', 'Texture');
   add('programs', 'Programmi');
+  add('shaderErrors', 'Shader error');
+  add('shaderLog', 'Shader log');
   add('colorBufferHalfFloat', 'EXT_color_buffer_half_float');
   add('colorBufferFloat', 'EXT_color_buffer_float');
   add('halfFloatLinear', 'OES_texture_half_float_linear');
   add('floatLinear', 'OES_texture_float_linear');
   add('anisotropic', 'EXT_texture_filter_anisotropic');
+  add('environment', 'Env map auto');
   add('userAgent', 'User agent');
   folder.close();
 
@@ -88,7 +94,19 @@ export function createDebugRenderer(scene, world, gui, renderer) {
     info.triangles = renderer.info.render.triangles;
     info.geometries = renderer.info.memory.geometries;
     info.textures = renderer.info.memory.textures;
-    info.programs = renderer.info.programs ? renderer.info.programs.length : 0;
+    const programs = renderer.info.programs || [];
+    info.programs = programs.length;
+    let shaderErrors = 0;
+    let shaderLog = '';
+    for (const program of programs) {
+      if (!program.diagnostics) continue;
+      shaderErrors++;
+      if (!shaderLog) {
+        shaderLog = String(program.diagnostics.programLog || program.diagnostics.vertexShader || '').slice(0, 300);
+      }
+    }
+    info.shaderErrors = shaderErrors;
+    info.shaderLog = shaderLog;
     for (const controller of controllers) controller.updateDisplay();
   }
 
@@ -107,5 +125,5 @@ export function createDebugRenderer(scene, world, gui, renderer) {
     refreshInfo(fps);
   }
 
-  return { update, settings, lines };
+  return { update, settings, lines, info };
 }
