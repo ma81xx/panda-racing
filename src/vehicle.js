@@ -455,6 +455,12 @@ export function createVehicle(scene, physics, start, tangent, gltfScene, collide
   const prevQuat = new THREE.Quaternion();
   const currentPosition = new THREE.Vector3();
   const currentQuat = new THREE.Quaternion();
+  const contactPointPool = [
+    new THREE.Vector3(),
+    new THREE.Vector3(),
+    new THREE.Vector3(),
+    new THREE.Vector3()
+  ];
   let hasInterpolationStart = false;
 
   function captureInterpolationStart() {
@@ -492,7 +498,9 @@ export function createVehicle(scene, physics, start, tangent, gltfScene, collide
       state.compressions[i] = THREE.MathUtils.clamp(compression, -0.3, 0.3);
 
       const contact = controller.wheelContactPoint(i);
-      state.contactPoints[i] = contact ? new THREE.Vector3(contact.x, contact.y, contact.z) : null;
+      state.contactPoints[i] = contact
+        ? contactPointPool[i].set(contact.x, contact.y, contact.z)
+        : null;
 
       const ground = controller.wheelGroundObject(i);
       let surface = 'road';

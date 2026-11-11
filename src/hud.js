@@ -21,10 +21,12 @@ export function createHud(curve) {
     </div>
     <div class="hud__progress"><div class="hud__progress-fill" data-hud="progress"></div></div>
     <canvas class="hud__minimap" width="160" height="160"></canvas>
+    <div class="hud__fps" data-hud="fps">-- FPS</div>
   `;
   document.body.appendChild(root);
 
   const el = {
+    fps: root.querySelector('[data-hud="fps"]'),
     lap: root.querySelector('[data-hud="lap"]'),
     time: root.querySelector('[data-hud="time"]'),
     best: root.querySelector('[data-hud="best"]'),
@@ -95,11 +97,21 @@ export function createHud(curve) {
   }
 
   const TEXT_INTERVAL = 1000 / 12;
+  const DRAW_INTERVAL = 1000 / 20;
+  const FPS_INTERVAL = 1000 / 5;
   let lastText = -Infinity;
+  let lastDraw = -Infinity;
+  let lastFps = -Infinity;
   let lastGear = null;
   let lastRedline = false;
 
   return {
+    setFps(fps) {
+      const now = performance.now();
+      if (now - lastFps < FPS_INTERVAL) return;
+      lastFps = now;
+      el.fps.textContent = `${Math.round(fps)} FPS`;
+    },
     update({ lap, time, best, progress, pos, gear, rpm, redline }) {
       const red = redline || 7200;
       const pct = Math.min(Math.max(rpm / red, 0), 1);
@@ -111,9 +123,12 @@ export function createHud(curve) {
         lastRedline = redlineNow;
       }
 
-      draw(pos, progress);
-
       const now = performance.now();
+      if (now - lastDraw >= DRAW_INTERVAL) {
+        lastDraw = now;
+        draw(pos, progress);
+      }
+
       if (now - lastText < TEXT_INTERVAL) return;
       lastText = now;
 

@@ -675,6 +675,6 @@ export function createTrack(scene, physics, materials, seed = 1337) {
     roadSurfaceHeightAt,
     body,
     colliders: { road: roadCollider, terrain: terrainCollider },
-    hazards: { colliders: hazardColliders }
+    hazards: { colliders: hazardColliders, positions: hazardSpots }
   };
 }

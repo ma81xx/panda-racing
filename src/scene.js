@@ -1,13 +1,15 @@
 import * as THREE from 'three';
 import { Sky } from 'three/examples/jsm/objects/Sky.js';
 
+const MAX_PIXEL_RATIO = 1.5;
+
 export function createScene(canvas) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0xbfd9f2);
   scene.fog = new THREE.Fog(0xbfd9f2, 90, 320);
 
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, MAX_PIXEL_RATIO));
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -83,7 +85,7 @@ export function createScene(canvas) {
   function handleResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, MAX_PIXEL_RATIO));
     renderer.setSize(window.innerWidth, window.innerHeight);
   }
   window.addEventListener('resize', handleResize);

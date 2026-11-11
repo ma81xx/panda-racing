@@ -81,6 +81,20 @@ body,
   gap: 0.9rem;
 }
 
+.hud__fps {
+  position: absolute;
+  top: calc(1rem + 160px + 0.5rem);
+  right: 1rem;
+  font-family: ui-monospace, monospace;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 0.15rem 0.4rem;
+  border-radius: 0.35rem;
+  background: rgba(0, 0, 0, 0.35);
+  opacity: 0.85;
+}
+
 .hud__lap {
   font-size: 1.25rem;
   font-weight: 700;
@@ -178,6 +192,10 @@ body,
   .hud__minimap {
     width: 108px;
     height: 108px;
+  }
+
+  .hud__fps {
+    top: calc(1rem + 108px + 0.5rem);
   }
 
   .hud__time {

@@ -92,8 +92,11 @@ async function bootstrap() {
   const camRay = new physics.RAPIER.Ray({ x: 0, y: 0, z: 0 }, { x: 0, y: -1, z: 0 });
   let shake = 0;
   let dustAccum = 0;
+  let fpsSmoothed = 60;
 
   let progressPts = new Float32Array((PROGRESS_SAMPLES + 1) * 3);
+  let progressSample = -1;
+  const trackPoint = new THREE.Vector3();
 
   function buildProgressSamples() {
     for (let i = 0; i <= PROGRESS_SAMPLES; i++) {
@@ -102,18 +105,31 @@ async function bootstrap() {
       progressPts[i * 3 + 1] = p.y;
       progressPts[i * 3 + 2] = p.z;
     }
+    progressSample = -1;
   }
 
   function trackProgress(x, z) {
     const n = PROGRESS_SAMPLES;
     let best = 0;
     let bestD = Infinity;
-    for (let i = 0; i <= n; i++) {
-      const dx = progressPts[i * 3] - x;
-      const dz = progressPts[i * 3 + 2] - z;
-      const d = dx * dx + dz * dz;
-      if (d < bestD) { bestD = d; best = i; }
+    if (progressSample < 0) {
+      for (let i = 0; i < n; i++) {
+        const dx = progressPts[i * 3] - x;
+        const dz = progressPts[i * 3 + 2] - z;
+        const d = dx * dx + dz * dz;
+        if (d < bestD) { bestD = d; best = i; }
+      }
+    } else {
+      const search = 40;
+      for (let o = -search; o <= search; o++) {
+        const i = ((progressSample + o) % n + n) % n;
+        const dx = progressPts[i * 3] - x;
+        const dz = progressPts[i * 3 + 2] - z;
+        const d = dx * dx + dz * dz;
+        if (d < bestD) { bestD = d; best = i; }
+      }
     }
+    progressSample = best;
     let t = best / n;
     let bt = t;
     let bd = bestD;
@@ -122,9 +138,9 @@ async function bootstrap() {
       for (const s of [-1, 1]) {
         let tt = t + s * k * (step / 6);
         tt = ((tt % 1) + 1) % 1;
-        const p = track.curve.getPointAt(tt);
-        const dx = p.x - x;
-        const dz = p.z - z;
+        track.curve.getPointAt(tt, trackPoint);
+        const dx = trackPoint.x - x;
+        const dz = trackPoint.z - z;
         const d = dx * dx + dz * dz;
         if (d < bd) { bd = d; bt = tt; }
       }
@@ -186,6 +202,7 @@ async function bootstrap() {
     b.setAngvel({ x: 0, y: 0, z: 0 }, true);
     vehicle.resetGearbox();
     vehicle.snapInterpolation();
+    progressSample = -1;
     resetCamera();
   }
 
@@ -213,8 +230,10 @@ async function bootstrap() {
     hud = createHud(track.curve);
     flipTimer = 0;
     offRoadTimer = 0;
+    renderer.compile(scene, camera);
   }
   resetWorld(settings.seed);
+  renderer.render(scene, camera);
 
   const debug = createDebugRenderer(scene, physics.world, gui);
   const clock = new THREE.Clock();
@@ -239,11 +258,18 @@ async function bootstrap() {
   });
 
   function detectImpacts() {
-    for (const hazardCollider of track.hazards.colliders) {
-      physics.world.contactPair(vehicle.bodyCollider, hazardCollider, (manifold) => {
+    const colliders = track.hazards.colliders;
+    const positions = track.hazards.positions;
+    const t = vehicle.body.translation();
+    for (let i = 0; i < colliders.length; i++) {
+      const spot = positions[i];
+      const dx = spot[0] - t.x;
+      const dz = spot[2] - t.z;
+      if (dx * dx + dz * dz > 36) continue;
+      physics.world.contactPair(vehicle.bodyCollider, colliders[i], (manifold) => {
         let impulse = 0;
         const n = manifold.numContacts();
-        for (let i = 0; i < n; i++) impulse += Math.abs(manifold.contactImpulse(i) || 0);
+        for (let k = 0; k < n; k++) impulse += Math.abs(manifold.contactImpulse(k) || 0);
         if (impulse > 1500) {
           const intensity = Math.min(impulse / 7000, 1);
           shake = Math.max(shake, 0.2 + intensity * 0.6);
@@ -421,6 +447,9 @@ async function bootstrap() {
   function animate() {
     requestAnimationFrame(animate);
     const delta = Math.min(clock.getDelta(), MAX_DELTA);
+    const instantFps = 1 / Math.max(delta, 1e-4);
+    fpsSmoothed += (instantFps - fpsSmoothed) * Math.min(delta * 4, 1);
+    if (hud) hud.setFps(fpsSmoothed);
     input.poll();
     if (paused) {
       renderer.render(scene, camera);
