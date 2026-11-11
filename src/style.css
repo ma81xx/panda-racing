@@ -402,3 +402,13 @@ body,
     font-size: 0.88rem;
   }
 }
+
+.lil-gui.lil-root.lil-closed {
+  width: auto;
+}
+
+.lil-gui.lil-root.lil-closed > .lil-title {
+  height: 18px;
+  padding: 0 5px;
+  font-size: 9px;
+}

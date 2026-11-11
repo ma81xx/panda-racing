@@ -235,14 +235,13 @@ async function bootstrap() {
   resetWorld(settings.seed);
   renderer.render(scene, camera);
 
-  const debug = createDebugRenderer(scene, physics.world, gui, renderer);
-  debug.info.environment = environment ? 'attivo' : 'disattivato (fallback)';
+  const debug = createDebugRenderer(scene, physics.world, gui);
 
   function hasShaderErrors() {
     const programs = renderer.info.programs;
     if (!programs) return false;
     for (const program of programs) {
-      if (!program.diagnostics) continue;
+      if (!program.diagnostics || program.diagnostics.runnable !== false) continue;
       console.error('Shader error', program.diagnostics);
       return true;
     }
@@ -252,7 +251,6 @@ async function bootstrap() {
   if (environment && hasShaderErrors()) {
     vehicle.setEnvMapEnabled(false);
     renderer.compile(scene, camera);
-    debug.info.environment = 'disattivato (shader)';
   }
 
   const clock = new THREE.Clock();
@@ -498,7 +496,7 @@ async function bootstrap() {
     if (shake < 0.001) shake = 0;
     sky.material.uniforms.time.value += delta;
     updateCamera(delta);
-    debug.update(delta, fpsSmoothed);
+    debug.update();
     renderer.render(scene, camera);
   }
 

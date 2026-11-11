@@ -3,6 +3,12 @@ import { Sky } from 'three/examples/jsm/objects/Sky.js';
 
 const MAX_PIXEL_RATIO = 1.5;
 
+function supportsEnvironmentMap(renderer) {
+  if (!renderer.capabilities.isWebGL2) return false;
+  const gl = renderer.getContext();
+  return !!(gl.getExtension('EXT_color_buffer_half_float') || gl.getExtension('EXT_color_buffer_float'));
+}
+
 function isEnvironmentUsable(renderer, environment) {
   const probeScene = new THREE.Scene();
   const probeCamera = new THREE.PerspectiveCamera(45, 1, 0.1, 10);
@@ -44,12 +50,15 @@ export function createScene(canvas) {
   scene.fog = new THREE.Fog(0xbfd9f2, 90, 320);
 
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, MAX_PIXEL_RATIO));
+  const lowPower = renderer.capabilities.precision !== 'highp' || renderer.capabilities.maxTextureSize < 4096;
+  const pixelRatioCap = lowPower ? 1 : MAX_PIXEL_RATIO;
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, pixelRatioCap));
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.type = lowPower ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 0.8;
+  canvas.addEventListener('webglcontextlost', (event) => event.preventDefault());
 
   const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
   camera.position.set(0, 8, -14);
@@ -59,7 +68,8 @@ export function createScene(canvas) {
   const sun = new THREE.DirectionalLight(0xfff2d0, 2.2);
   sun.position.set(-45, 65, 20);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
+  const shadowSize = lowPower ? 1024 : 2048;
+  sun.shadow.mapSize.set(shadowSize, shadowSize);
   sun.shadow.camera.near = 1;
   sun.shadow.camera.far = 220;
   sun.shadow.camera.left = -38;
@@ -87,28 +97,36 @@ export function createScene(canvas) {
   skyUniforms.cloudSpeed.value = 0.0002;
   scene.add(sky);
 
-  const pmrem = new THREE.PMREMGenerator(renderer);
-  const envScene = new THREE.Scene();
-  const envSky = sky.clone();
-  envScene.add(envSky);
-  const envGround = new THREE.Mesh(
-    new THREE.PlaneGeometry(2000, 2000),
-    new THREE.MeshBasicMaterial({ color: 0x5f7a3a })
-  );
-  envGround.rotation.x = -Math.PI / 2;
-  envGround.position.y = -12;
-  envScene.add(envGround);
-  const cloudCoverage = skyUniforms.cloudCoverage.value;
-  skyUniforms.cloudCoverage.value = 0;
-  const envTarget = pmrem.fromScene(envScene, 0, 1, 1000);
-  skyUniforms.cloudCoverage.value = cloudCoverage;
-  let environment = envTarget.texture;
-  pmrem.dispose();
-  envGround.geometry.dispose();
-  envGround.material.dispose();
-  if (!isEnvironmentUsable(renderer, environment)) {
-    envTarget.dispose();
-    environment = null;
+  let environment = null;
+  if (supportsEnvironmentMap(renderer)) {
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    const envScene = new THREE.Scene();
+    const envSky = sky.clone();
+    envScene.add(envSky);
+    const envGround = new THREE.Mesh(
+      new THREE.PlaneGeometry(2000, 2000),
+      new THREE.MeshBasicMaterial({ color: 0x5f7a3a })
+    );
+    envGround.rotation.x = -Math.PI / 2;
+    envGround.position.y = -12;
+    envScene.add(envGround);
+    const cloudCoverage = skyUniforms.cloudCoverage.value;
+    skyUniforms.cloudCoverage.value = 0;
+    try {
+      const envTarget = pmrem.fromScene(envScene, 0, 1, 1000);
+      environment = envTarget.texture;
+      if (!isEnvironmentUsable(renderer, environment)) {
+        envTarget.dispose();
+        environment = null;
+      }
+    } catch (error) {
+      environment = null;
+    } finally {
+      skyUniforms.cloudCoverage.value = cloudCoverage;
+      pmrem.dispose();
+      envGround.geometry.dispose();
+      envGround.material.dispose();
+    }
   }
 
   const materials = {
@@ -124,7 +142,7 @@ export function createScene(canvas) {
   function handleResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, MAX_PIXEL_RATIO));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, pixelRatioCap));
     renderer.setSize(window.innerWidth, window.innerHeight);
   }
   window.addEventListener('resize', handleResize);
