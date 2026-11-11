@@ -163,6 +163,8 @@ export function createVehicle(scene, physics, start, tangent, gltfScene, collide
     node.userData.opaqueMaterial = node.material;
   });
 
+  const envMaterials = new Set();
+
   if (environment) {
     const envIntensity = { Carpaint: 0.18, Metal: 0.18, Plastic: 0.2, Tyre: 0.15, Window: 0.08 };
     group.traverse((node) => {
@@ -170,6 +172,7 @@ export function createVehicle(scene, physics, start, tangent, gltfScene, collide
       const list = Array.isArray(node.material) ? node.material : [node.material];
       for (const material of list) {
         if (!material || !('envMap' in material)) continue;
+        envMaterials.add(material);
         material.envMap = environment;
         material.envMapIntensity = envIntensity[material.name] ?? 0.18;
         if (!baseColors.has(material)) baseColors.set(material, material.color.clone());
@@ -212,6 +215,40 @@ export function createVehicle(scene, physics, start, tangent, gltfScene, collide
         mesh.material = mesh.userData.opaqueMaterial;
       }
     }
+  }
+
+  const diagnosticBasicMaterial = new THREE.MeshBasicMaterial({ color: 0xff00ff });
+  const diagnosticNormalMaterial = new THREE.MeshNormalMaterial();
+
+  function setEnvMapEnabled(enabled) {
+    for (const material of envMaterials) {
+      material.envMap = enabled ? environment : null;
+      material.needsUpdate = true;
+    }
+  }
+
+  function setShadowsEnabled(enabled) {
+    group.traverse((node) => {
+      if (!node.isMesh) return;
+      node.castShadow = enabled;
+      node.receiveShadow = enabled;
+    });
+  }
+
+  function setMaterialOverride(mode) {
+    group.traverse((node) => {
+      if (!node.isMesh) return;
+      if (!node.userData.debugBaseMaterial) {
+        node.userData.debugBaseMaterial = node.material;
+      }
+      const base = node.userData.debugBaseMaterial;
+      if (mode === 'basic' || mode === 'normal') {
+        const diagnostic = mode === 'basic' ? diagnosticBasicMaterial : diagnosticNormalMaterial;
+        node.material = Array.isArray(base) ? base.map(() => diagnostic) : diagnostic;
+      } else {
+        node.material = base;
+      }
+    });
   }
 
   scene.add(group);
@@ -657,8 +694,14 @@ export function createVehicle(scene, physics, start, tangent, gltfScene, collide
     g.add(tuning, 'throttleRampUp', 0, 0.6, 0.01).name('gas: salita');
     g.add(tuning, 'throttleRampDown', 0, 0.3, 0.01).name('gas: rilascio');
 
+    const d = f.addFolder('Diagnostica auto');
+    const diag = { envMap: true, shadows: true, material: 'off' };
+    d.add(diag, 'envMap').name('Env map').onChange((value) => setEnvMapEnabled(value));
+    d.add(diag, 'shadows').name('Ombre auto').onChange((value) => setShadowsEnabled(value));
+    d.add(diag, 'material', ['off', 'basic', 'normal']).name('Materiale').onChange((value) => setMaterialOverride(value));
+
     return f;
   }
 
-  return { group, chassis, body, bodyCollider, controller, tuning, state, update, sync, snapInterpolation, addGui, resetGearbox, setChassisTransparent };
+  return { group, chassis, body, bodyCollider, controller, tuning, state, update, sync, snapInterpolation, addGui, resetGearbox, setChassisTransparent, setEnvMapEnabled, setShadowsEnabled, setMaterialOverride };
 }

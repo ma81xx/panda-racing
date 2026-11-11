@@ -16,11 +16,17 @@ export function createDebugRenderer(scene, world, gui, renderer) {
 
   const gl = renderer.getContext();
   const debugExt = gl.getExtension('WEBGL_debug_renderer_info');
+  const highpFormat = gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.HIGH_FLOAT);
   const info = {
     fps: 0,
     webgl: renderer.capabilities.isWebGL2 ? 'WebGL2' : 'WebGL1',
     gpu: String(debugExt ? gl.getParameter(debugExt.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)),
     vendor: String(debugExt ? gl.getParameter(debugExt.UNMASKED_VENDOR_WEBGL) : gl.getParameter(gl.VENDOR)),
+    glVersion: String(gl.getParameter(gl.VERSION)),
+    glsl: String(gl.getParameter(gl.SHADING_LANGUAGE_VERSION)),
+    precision: renderer.capabilities.precision,
+    fragmentHighp: highpFormat && highpFormat.precision > 0 ? `sì (${highpFormat.precision})` : 'no',
+    userAgent: navigator.userAgent,
     pixelRatio: renderer.getPixelRatio().toFixed(2),
     drawingBuffer: '',
     maxTextureSize: renderer.capabilities.maxTextureSize,
@@ -43,6 +49,10 @@ export function createDebugRenderer(scene, world, gui, renderer) {
   add('webgl', 'WebGL');
   add('gpu', 'GPU');
   add('vendor', 'Vendor');
+  add('glVersion', 'GL version');
+  add('glsl', 'GLSL');
+  add('precision', 'Precision default');
+  add('fragmentHighp', 'Fragment highp');
   add('pixelRatio', 'Pixel ratio');
   add('drawingBuffer', 'Drawing buffer');
   add('maxTextureSize', 'Max texture');
@@ -56,7 +66,15 @@ export function createDebugRenderer(scene, world, gui, renderer) {
   add('halfFloatLinear', 'OES_texture_half_float_linear');
   add('floatLinear', 'OES_texture_float_linear');
   add('anisotropic', 'EXT_texture_filter_anisotropic');
+  add('userAgent', 'User agent');
   folder.close();
+
+  const renderDiag = { shadows: renderer.shadowMap.enabled };
+  const diagFolder = gui.addFolder('Diagnostica render');
+  diagFolder.add(renderDiag, 'shadows').name('Shadow map').onChange((value) => {
+    renderer.shadowMap.enabled = value;
+  });
+  diagFolder.close();
 
   const bufferSize = new THREE.Vector2();
   let infoTimer = 0;
