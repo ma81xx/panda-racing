@@ -140,6 +140,32 @@ export function createVehicle(scene, physics, start, tangent, gltfScene, collide
     ? wheelData.reduce((sum, wheel) => sum + wheel.radius, 0) / wheelData.length
     : 0.42;
 
+  const brakeLightMaterials = [];
+  const reverseLightMaterials = [];
+  const lightMaterialMap = new Map();
+
+  function getLightMaterial(material) {
+    if (!material || (material.name !== 'Material.001' && material.name !== 'Reverse')) return material;
+    let clone = lightMaterialMap.get(material);
+    if (!clone) {
+      clone = material.clone();
+      if (material.name === 'Material.001') {
+        clone.color.setHex(0x2a0000);
+        clone.emissive.setRGB(1, 0.02, 0.01);
+        clone.emissiveIntensity = 0;
+        brakeLightMaterials.push(clone);
+      } else {
+        clone.color.setHex(0xcfcfcf);
+        clone.emissive.setRGB(1, 0.95, 0.9);
+        clone.emissiveIntensity = 0;
+        reverseLightMaterials.push(clone);
+      }
+      clone.needsUpdate = true;
+      lightMaterialMap.set(material, clone);
+    }
+    return clone;
+  }
+
   const tunedMaterials = new Set();
   const chassisMeshes = [];
   chassis.traverse((node) => {
@@ -160,8 +186,26 @@ export function createVehicle(scene, physics, start, tangent, gltfScene, collide
         material.needsUpdate = true;
       }
     }
+    node.material = Array.isArray(node.material)
+      ? node.material.map(getLightMaterial)
+      : getLightMaterial(node.material);
     node.userData.opaqueMaterial = node.material;
   });
+
+  let brakeLightsOn = false;
+  let reverseLightOn = false;
+
+  function setBrakeLights(on) {
+    if (brakeLightsOn === on) return;
+    brakeLightsOn = on;
+    for (const material of brakeLightMaterials) material.emissiveIntensity = on ? 3 : 0;
+  }
+
+  function setReverseLight(on) {
+    if (reverseLightOn === on) return;
+    reverseLightOn = on;
+    for (const material of reverseLightMaterials) material.emissiveIntensity = on ? 2.4 : 0;
+  }
 
   const envMaterials = new Set();
 
@@ -596,6 +640,10 @@ export function createVehicle(scene, physics, start, tangent, gltfScene, collide
 
     controller.updateVehicle(dt);
     readState(input);
+
+    const reversing = currentGear < 0;
+    setBrakeLights(!reversing && input.braking > 0.05);
+    setReverseLight(reversing);
   }
 
   const chassisTilt = { x: 0, z: 0 };
