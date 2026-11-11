@@ -1,6 +1,10 @@
 import * as THREE from 'three';
 
-export function createDebugRenderer(scene, world, gui) {
+function extensionState(gl, name) {
+  return gl.getExtension(name) ? 'sì' : 'no';
+}
+
+export function createDebugRenderer(scene, world, gui, renderer) {
   const material = new THREE.LineBasicMaterial({ color: 0x00ff88, vertexColors: true });
   const geometry = new THREE.BufferGeometry();
   const lines = new THREE.LineSegments(geometry, material);
@@ -10,13 +14,79 @@ export function createDebugRenderer(scene, world, gui) {
   const settings = { showPhysicsDebug: false };
   gui.add(settings, 'showPhysicsDebug').name('Physics wireframe');
 
-  function update() {
+  const gl = renderer.getContext();
+  const debugExt = gl.getExtension('WEBGL_debug_renderer_info');
+  const info = {
+    fps: 0,
+    webgl: renderer.capabilities.isWebGL2 ? 'WebGL2' : 'WebGL1',
+    gpu: String(debugExt ? gl.getParameter(debugExt.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)),
+    vendor: String(debugExt ? gl.getParameter(debugExt.UNMASKED_VENDOR_WEBGL) : gl.getParameter(gl.VENDOR)),
+    pixelRatio: renderer.getPixelRatio().toFixed(2),
+    drawingBuffer: '',
+    maxTextureSize: renderer.capabilities.maxTextureSize,
+    drawCalls: 0,
+    triangles: 0,
+    geometries: 0,
+    textures: 0,
+    programs: 0,
+    colorBufferHalfFloat: extensionState(gl, 'EXT_color_buffer_half_float'),
+    colorBufferFloat: extensionState(gl, 'EXT_color_buffer_float'),
+    halfFloatLinear: extensionState(gl, 'OES_texture_half_float_linear'),
+    floatLinear: extensionState(gl, 'OES_texture_float_linear'),
+    anisotropic: extensionState(gl, 'EXT_texture_filter_anisotropic')
+  };
+
+  const folder = gui.addFolder('Info debug');
+  const controllers = [];
+  const add = (key, label) => controllers.push(folder.add(info, key).name(label).disable());
+  add('fps', 'FPS');
+  add('webgl', 'WebGL');
+  add('gpu', 'GPU');
+  add('vendor', 'Vendor');
+  add('pixelRatio', 'Pixel ratio');
+  add('drawingBuffer', 'Drawing buffer');
+  add('maxTextureSize', 'Max texture');
+  add('drawCalls', 'Draw calls');
+  add('triangles', 'Triangoli');
+  add('geometries', 'Geometrie');
+  add('textures', 'Texture');
+  add('programs', 'Programmi');
+  add('colorBufferHalfFloat', 'EXT_color_buffer_half_float');
+  add('colorBufferFloat', 'EXT_color_buffer_float');
+  add('halfFloatLinear', 'OES_texture_half_float_linear');
+  add('floatLinear', 'OES_texture_float_linear');
+  add('anisotropic', 'EXT_texture_filter_anisotropic');
+  folder.close();
+
+  const bufferSize = new THREE.Vector2();
+  let infoTimer = 0;
+
+  function refreshInfo(fps) {
+    info.fps = Math.round(fps);
+    info.pixelRatio = renderer.getPixelRatio().toFixed(2);
+    renderer.getDrawingBufferSize(bufferSize);
+    info.drawingBuffer = `${bufferSize.x}x${bufferSize.y}`;
+    info.drawCalls = renderer.info.render.calls;
+    info.triangles = renderer.info.render.triangles;
+    info.geometries = renderer.info.memory.geometries;
+    info.textures = renderer.info.memory.textures;
+    info.programs = renderer.info.programs ? renderer.info.programs.length : 0;
+    for (const controller of controllers) controller.updateDisplay();
+  }
+
+  function update(delta = 0, fps = 0) {
     lines.visible = settings.showPhysicsDebug;
-    if (!settings.showPhysicsDebug) return;
-    const buffers = world.debugRender();
-    geometry.setAttribute('position', new THREE.BufferAttribute(buffers.vertices, 3));
-    geometry.setAttribute('color', new THREE.BufferAttribute(buffers.colors, 4));
-    geometry.computeBoundingSphere();
+    if (settings.showPhysicsDebug) {
+      const buffers = world.debugRender();
+      geometry.setAttribute('position', new THREE.BufferAttribute(buffers.vertices, 3));
+      geometry.setAttribute('color', new THREE.BufferAttribute(buffers.colors, 4));
+      geometry.computeBoundingSphere();
+    }
+
+    infoTimer += delta;
+    if (infoTimer < 0.25) return;
+    infoTimer = 0;
+    refreshInfo(fps);
   }
 
   return { update, settings, lines };

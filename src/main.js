@@ -235,7 +235,7 @@ async function bootstrap() {
   resetWorld(settings.seed);
   renderer.render(scene, camera);
 
-  const debug = createDebugRenderer(scene, physics.world, gui);
+  const debug = createDebugRenderer(scene, physics.world, gui, renderer);
   const clock = new THREE.Clock();
 
   document.addEventListener('visibilitychange', () => {
@@ -479,7 +479,7 @@ async function bootstrap() {
     if (shake < 0.001) shake = 0;
     sky.material.uniforms.time.value += delta;
     updateCamera(delta);
-    debug.update();
+    debug.update(delta, fpsSmoothed);
     renderer.render(scene, camera);
   }
 
