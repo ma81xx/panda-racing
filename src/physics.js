@@ -19,6 +19,7 @@ export async function createPhysics() {
       world.step();
       accumulator -= FIXED_DT;
     }
+    return accumulator / FIXED_DT;
   }
 
   return { RAPIER, world, step, fixedDt: FIXED_DT };

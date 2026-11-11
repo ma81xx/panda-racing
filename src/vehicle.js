@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { syncMeshToBody } from './physics.js';
 
 const baseColors = new WeakMap();
 
@@ -452,6 +451,28 @@ export function createVehicle(scene, physics, start, tangent, gltfScene, collide
   const latVec = new THREE.Vector3();
   const linVec = new THREE.Vector3();
 
+  const prevPosition = new THREE.Vector3();
+  const prevQuat = new THREE.Quaternion();
+  const currentPosition = new THREE.Vector3();
+  const currentQuat = new THREE.Quaternion();
+  let hasInterpolationStart = false;
+
+  function captureInterpolationStart() {
+    const p = body.translation();
+    const q = body.rotation();
+    prevPosition.set(p.x, p.y, p.z);
+    prevQuat.set(q.x, q.y, q.z, q.w);
+    hasInterpolationStart = true;
+  }
+
+  function snapInterpolation() {
+    const p = body.translation();
+    const q = body.rotation();
+    prevPosition.set(p.x, p.y, p.z);
+    prevQuat.set(q.x, q.y, q.z, q.w);
+    hasInterpolationStart = true;
+  }
+
   function readState(input) {
     const lin = body.linvel();
     const q = body.rotation();
@@ -505,6 +526,7 @@ export function createVehicle(scene, physics, start, tangent, gltfScene, collide
   }
 
   function update(input, dt) {
+    captureInterpolationStart();
     syncTuning();
     const lin = body.linvel();
     const rot = body.rotation();
@@ -559,8 +581,19 @@ export function createVehicle(scene, physics, start, tangent, gltfScene, collide
 
   const chassisTilt = { x: 0, z: 0 };
 
-  function sync() {
-    syncMeshToBody(group, body);
+  function sync(alpha = 1) {
+    const p = body.translation();
+    const q = body.rotation();
+    currentPosition.set(p.x, p.y, p.z);
+    currentQuat.set(q.x, q.y, q.z, q.w);
+    if (!hasInterpolationStart) {
+      prevPosition.copy(currentPosition);
+      prevQuat.copy(currentQuat);
+      hasInterpolationStart = true;
+    }
+    const t = THREE.MathUtils.clamp(alpha, 0, 1);
+    group.position.lerpVectors(prevPosition, currentPosition, t);
+    group.quaternion.slerpQuaternions(prevQuat, currentQuat, t);
 
     const c = state.compressions;
     const front = (c[0] + c[1]) / 2;
@@ -619,5 +652,5 @@ export function createVehicle(scene, physics, start, tangent, gltfScene, collide
     return f;
   }
 
-  return { group, chassis, body, bodyCollider, controller, tuning, state, update, sync, addGui, resetGearbox, setChassisTransparent };
+  return { group, chassis, body, bodyCollider, controller, tuning, state, update, sync, snapInterpolation, addGui, resetGearbox, setChassisTransparent };
 }

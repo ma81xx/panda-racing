@@ -14,9 +14,34 @@ import { createHud } from './hud.js';
 import './style.css';
 
 const PROGRESS_SAMPLES = 600;
-const CAM_STIFFNESS = 70;
-const CAM_DAMPING = 16;
+const CAM_BASE_FOV = 60;
+const CAM_DISTANCE = 10;
+const CAM_HEIGHT = 5.5;
+const CAM_SMOOTH_TIME = 0.18;
+const CAM_COLLISION_MARGIN = 0.4;
+const CAM_MIN_DISTANCE = 1.2;
+const MAX_DELTA = 0.1;
 const SPAWN_CLEARANCE = 0.58;
+
+function smoothDamp(current, target, velocity, smoothTime, delta) {
+  const omega = 2 / Math.max(smoothTime, 0.0001);
+  const x = omega * delta;
+  const exp = 1 / (1 + x + 0.48 * x * x + 0.235 * x * x * x);
+  const cx = current.x - target.x;
+  const cy = current.y - target.y;
+  const cz = current.z - target.z;
+  const tx = (velocity.x + omega * cx) * delta;
+  const ty = (velocity.y + omega * cy) * delta;
+  const tz = (velocity.z + omega * cz) * delta;
+  velocity.x = (velocity.x - omega * tx) * exp;
+  velocity.y = (velocity.y - omega * ty) * exp;
+  velocity.z = (velocity.z - omega * tz) * exp;
+  current.set(
+    target.x + (cx + tx) * exp,
+    target.y + (cy + ty) * exp,
+    target.z + (cz + tz) * exp
+  );
+}
 
 async function bootstrap() {
   const canvas = document.querySelector('#app');
@@ -47,6 +72,26 @@ async function bootstrap() {
   const pauseOverlay = document.querySelector('[data-pause]');
   const skidmarks = createSkidMarks(scene);
   const particles = createParticles(scene);
+
+  const chasePosition = new THREE.Vector3();
+  const chaseTarget = new THREE.Vector3();
+  const cameraVel = new THREE.Vector3();
+  const smoothedVelocity = new THREE.Vector3();
+  const desiredPosition = new THREE.Vector3();
+  const desiredTarget = new THREE.Vector3();
+  const camForward = new THREE.Vector3();
+  const camRayDir = new THREE.Vector3();
+  const tmpLook = new THREE.Vector3();
+  const tmpLateral = new THREE.Vector3();
+  const tmpVelocity = new THREE.Vector3();
+  const tmpProbe = new THREE.Vector3();
+  const tmpUp = new THREE.Vector3(0, 1.2, 0);
+  const camDown = new THREE.Vector3(0, -1, 0);
+  const tmpQuat = new THREE.Quaternion();
+  const sunOffset = new THREE.Vector3(-45, 65, 20);
+  const camRay = new physics.RAPIER.Ray({ x: 0, y: 0, z: 0 }, { x: 0, y: -1, z: 0 });
+  let shake = 0;
+  let dustAccum = 0;
 
   let progressPts = new Float32Array((PROGRESS_SAMPLES + 1) * 3);
 
@@ -140,6 +185,8 @@ async function bootstrap() {
     b.setLinvel({ x: 0, y: 0, z: 0 }, true);
     b.setAngvel({ x: 0, y: 0, z: 0 }, true);
     vehicle.resetGearbox();
+    vehicle.snapInterpolation();
+    resetCamera();
   }
 
   function respawn() {
@@ -161,6 +208,7 @@ async function bootstrap() {
     vehicle.setChassisTransparent(settings.chassisTransparent);
     vehicleGuiFolder = vehicle.addGui(gui);
     buildProgressSamples();
+    resetCamera();
     resetTiming();
     hud = createHud(track.curve);
     flipTimer = 0;
@@ -170,12 +218,10 @@ async function bootstrap() {
 
   const debug = createDebugRenderer(scene, physics.world, gui);
   const clock = new THREE.Clock();
-  const chasePosition = new THREE.Vector3();
-  const chaseTarget = new THREE.Vector3();
-  const cameraVel = new THREE.Vector3();
 
-  let shake = 0;
-  let dustAccum = 0;
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) clock.getDelta();
+  });
 
   window.addEventListener('keydown', () => audio.resume(), { once: true });
   window.addEventListener('pointerdown', () => audio.resume(), { once: true });
@@ -233,33 +279,107 @@ async function bootstrap() {
     }
   }
 
-  const sunOffset = new THREE.Vector3(-45, 65, 20);
-  const desiredPosition = new THREE.Vector3();
-  const desiredTarget = new THREE.Vector3();
-  const tmpOffset = new THREE.Vector3();
-  const tmpUp = new THREE.Vector3(0, 1.2, 0);
-  const tmpLook = new THREE.Vector3();
+  function isTrackCollider(collider) {
+    return !!track && (
+      collider.handle === track.colliders.road.handle ||
+      collider.handle === track.colliders.terrain.handle
+    );
+  }
+
+  function castCameraRay(origin, dir, maxToi) {
+    camRay.origin.x = origin.x;
+    camRay.origin.y = origin.y;
+    camRay.origin.z = origin.z;
+    camRay.dir.x = dir.x;
+    camRay.dir.y = dir.y;
+    camRay.dir.z = dir.z;
+    return physics.world.castRay(camRay, maxToi, true, 0, undefined, undefined, undefined, isTrackCollider);
+  }
+
+  function clampCameraAboveGround(position) {
+    tmpProbe.set(position.x, position.y + 10, position.z);
+    const hit = castCameraRay(tmpProbe, camDown, 20);
+    if (!hit) return;
+    const groundY = tmpProbe.y - hit.timeOfImpact;
+    const minY = groundY + 0.6;
+    if (position.y < minY) position.y = minY;
+  }
+
+  function resolveCameraCollision(target, desired) {
+    camRayDir.copy(desired).sub(target);
+    const distance = camRayDir.length();
+    if (distance < 0.001) return;
+    camRayDir.multiplyScalar(1 / distance);
+    const hit = castCameraRay(target, camRayDir, distance);
+    if (hit && hit.timeOfImpact < distance) {
+      const safeDistance = Math.max(hit.timeOfImpact - CAM_COLLISION_MARGIN, CAM_MIN_DISTANCE);
+      desired.copy(target).addScaledVector(camRayDir, safeDistance);
+    }
+    clampCameraAboveGround(desired);
+  }
+
+  function resetCamera() {
+    if (!vehicle) return;
+    const t = vehicle.body.translation();
+    const r = vehicle.body.rotation();
+    tmpQuat.set(r.x, r.y, r.z, r.w);
+    camForward.set(0, 0, 1).applyQuaternion(tmpQuat);
+    camForward.y = 0;
+    if (camForward.lengthSq() < 1e-4) camForward.set(0, 0, 1);
+    camForward.normalize();
+    chasePosition.set(t.x, t.y, t.z).addScaledVector(camForward, -CAM_DISTANCE);
+    chasePosition.y += CAM_HEIGHT;
+    chaseTarget.set(t.x, t.y + tmpUp.y, t.z);
+    cameraVel.set(0, 0, 0);
+    smoothedVelocity.set(0, 0, 0);
+    shake = 0;
+    camera.fov = CAM_BASE_FOV;
+    camera.position.copy(chasePosition);
+    camera.lookAt(chaseTarget);
+    camera.updateProjectionMatrix();
+    sky.position.copy(camera.position);
+  }
 
   function updateCamera(delta) {
     const car = vehicle.group;
     const speed = Math.abs(vehicle.state.speed);
 
-    desiredPosition.copy(car.position).add(tmpOffset.set(0, 5.5, -10).applyQuaternion(car.quaternion));
-    cameraVel.addScaledVector(desiredPosition.sub(chasePosition), CAM_STIFFNESS * delta);
-    cameraVel.multiplyScalar(1 / (1 + CAM_DAMPING * delta));
-    chasePosition.addScaledVector(cameraVel, delta);
+    camForward.set(0, 0, 1).applyQuaternion(car.quaternion);
+    camForward.y = 0;
+    if (camForward.lengthSq() < 1e-4) camForward.set(0, 0, 1);
+    camForward.normalize();
 
-    tmpLook.set(vehicle.body.linvel().x, 0, vehicle.body.linvel().z);
+    const distance = CAM_DISTANCE + Math.min(speed, 35) * 0.06;
+    desiredPosition.copy(car.position).addScaledVector(camForward, -distance);
+    desiredPosition.y += CAM_HEIGHT;
+
+    const lin = vehicle.body.linvel();
+    tmpVelocity.set(lin.x, 0, lin.z);
+    smoothedVelocity.lerp(tmpVelocity, 1 - Math.exp(-delta * 8));
+
+    const forwardSpeed = smoothedVelocity.x * camForward.x + smoothedVelocity.z * camForward.z;
+    tmpLateral.set(
+      smoothedVelocity.x - camForward.x * forwardSpeed,
+      0,
+      smoothedVelocity.z - camForward.z * forwardSpeed
+    );
+
     const lookAhead = Math.min(2 + speed * 0.12, 8);
-    if (tmpLook.lengthSq() > 0.001) tmpLook.normalize().multiplyScalar(lookAhead);
-    else tmpLook.set(0, 0, 0);
+    tmpLook.copy(camForward).multiplyScalar(lookAhead).addScaledVector(tmpLateral, 0.15);
     desiredTarget.copy(car.position).add(tmpUp).add(tmpLook);
-    const targetAlpha = 1 - Math.exp(-delta * 6);
-    chaseTarget.lerp(desiredTarget, targetAlpha);
 
-    const targetFov = 60 + Math.min(speed, 35) * 0.42;
-    camera.fov += (targetFov - camera.fov) * Math.min(delta * 3, 1);
-    camera.updateProjectionMatrix();
+    resolveCameraCollision(desiredTarget, desiredPosition);
+    smoothDamp(chasePosition, desiredPosition, cameraVel, CAM_SMOOTH_TIME, delta);
+    clampCameraAboveGround(chasePosition);
+
+    chaseTarget.lerp(desiredTarget, 1 - Math.exp(-delta * 6));
+
+    const targetFov = CAM_BASE_FOV + Math.min(speed, 35) * 0.42;
+    const nextFov = camera.fov + (targetFov - camera.fov) * (1 - Math.exp(-delta * 3.5));
+    if (Math.abs(nextFov - camera.fov) > 1e-3) {
+      camera.fov = nextFov;
+      camera.updateProjectionMatrix();
+    }
 
     camera.position.copy(chasePosition);
     if (shake > 0.001) {
@@ -300,14 +420,14 @@ async function bootstrap() {
 
   function animate() {
     requestAnimationFrame(animate);
-    const delta = clock.getDelta();
+    const delta = Math.min(clock.getDelta(), MAX_DELTA);
     input.poll();
     if (paused) {
       renderer.render(scene, camera);
       return;
     }
-    physics.step(delta, (dt) => vehicle.update(input, dt));
-    vehicle.sync();
+    const alpha = physics.step(delta, (dt) => vehicle.update(input, dt));
+    vehicle.sync(alpha);
     skidmarks.update(vehicle.state);
     particles.update(delta);
     emitDust(delta);
@@ -326,15 +446,14 @@ async function bootstrap() {
       rpm: vehicle.state.rpm,
       redline: vehicle.state.redline
     });
-    shake = Math.max(0, shake - delta * 2.4);
+    shake *= Math.exp(-delta * 4.8);
+    if (shake < 0.001) shake = 0;
     sky.material.uniforms.time.value += delta;
     updateCamera(delta);
     debug.update();
     renderer.render(scene, camera);
   }
 
-  chasePosition.copy(vehicle.group.position).add(new THREE.Vector3(0, 6, -12));
-  chaseTarget.copy(vehicle.group.position);
   animate();
 }
 

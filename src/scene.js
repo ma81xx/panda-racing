@@ -80,11 +80,14 @@ export function createScene(canvas) {
     wheel: new THREE.MeshStandardMaterial({ color: 0x151515, roughness: 1, flatShading: true })
   };
 
-  window.addEventListener('resize', () => {
+  function handleResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(window.innerWidth, window.innerHeight);
-  });
+  }
+  window.addEventListener('resize', handleResize);
+  window.addEventListener('orientationchange', handleResize);
 
   return { scene, renderer, camera, materials, sun, sky, environment };
 }
