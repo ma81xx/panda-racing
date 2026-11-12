@@ -703,7 +703,7 @@ export function createVehicle(scene, physics, start, tangent, gltfScene, collide
       wd.pivot.rotation.y = i < 2 ? currentSteer : 0;
       const rot = controller.wheelRotation(i);
       const spin = rot != null ? rot : (state.speed * 0.016) / tuning.wheelRadius;
-      wd.spinner.rotation.x = -spin;
+      wd.spinner.rotation.x = spin;
     });
   }
 
