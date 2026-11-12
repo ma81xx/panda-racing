@@ -129,16 +129,6 @@ export function createScene(canvas) {
     }
   }
 
-  const materials = {
-    road: new THREE.MeshStandardMaterial({ color: 0x343840, roughness: 0.9, flatShading: true }),
-    shoulder: new THREE.MeshStandardMaterial({ color: 0x8a7448, roughness: 1, flatShading: true }),
-    grass: new THREE.MeshStandardMaterial({ color: 0x5f9f41, roughness: 1, flatShading: true }),
-    pandaWhite: new THREE.MeshStandardMaterial({ color: 0xf4eee4, roughness: 0.7, flatShading: true }),
-    pandaBlack: new THREE.MeshStandardMaterial({ color: 0x202329, roughness: 0.8, flatShading: true }),
-    glass: new THREE.MeshStandardMaterial({ color: 0x7fc7d9, roughness: 0.35, metalness: 0.05, flatShading: true }),
-    wheel: new THREE.MeshStandardMaterial({ color: 0x151515, roughness: 1, flatShading: true })
-  };
-
   function handleResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
@@ -148,5 +138,5 @@ export function createScene(canvas) {
   window.addEventListener('resize', handleResize);
   window.addEventListener('orientationchange', handleResize);
 
-  return { scene, renderer, camera, materials, sun, sky, environment };
+  return { scene, renderer, camera, sun, sky, environment };
 }

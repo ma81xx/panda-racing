@@ -46,7 +46,7 @@ function smoothDamp(current, target, velocity, smoothTime, delta) {
 
 async function bootstrap() {
   const canvas = document.querySelector('#app');
-  const { scene, renderer, camera, materials, sun, sky, environment } = createScene(canvas);
+  const { scene, renderer, camera, sun, sky, environment } = createScene(canvas);
   const physics = await createPhysics();
   const input = createInput();
 
@@ -220,15 +220,33 @@ async function bootstrap() {
     resetTiming();
   }
 
+  function disposeTrackGroup(group) {
+    const geometries = new Set();
+    const materials = new Set();
+    group.traverse((object) => {
+      if (object.geometry && !object.geometry.userData.shared) geometries.add(object.geometry);
+      if (!object.material) return;
+      const list = Array.isArray(object.material) ? object.material : [object.material];
+      for (const material of list) {
+        if (!material.userData.shared) materials.add(material);
+      }
+    });
+    for (const geometry of geometries) geometry.dispose();
+    for (const material of materials) material.dispose();
+  }
+
   function resetWorld(seed) {
     if (vehicleGuiFolder) { vehicleGuiFolder.destroy(); vehicleGuiFolder = null; }
-    if (track) scene.remove(track.group);
+    if (track) {
+      disposeTrackGroup(track.group);
+      scene.remove(track.group);
+    }
     if (vehicle) scene.remove(vehicle.group);
     if (hud) { hud.destroy(); hud = null; }
     physics.world.forEachRigidBody((body) => physics.world.removeRigidBody(body));
     skidmarks.clear();
     particles.clear();
-    track = createTrack(scene, physics, materials, seed);
+    track = createTrack(scene, physics, seed);
     const model = VEHICLE_MODELS[settings.model];
     vehicle = createVehicle(
       scene, physics, spawnPointAt(0), track.tangent,
