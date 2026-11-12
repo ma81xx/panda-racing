@@ -1,0 +1,2131 @@
+{
+  "name": "Mitsubishi Lancer Evolution IX",
+  "blueprint": "reference/lancer-evo9.gif",
+  "units": "mm",
+  "dimensions": {
+    "length": 4490,
+    "width": 1770,
+    "height": 1450,
+    "wheelbase": 2625,
+    "track": 1515,
+    "groundClearance": 140,
+    "wheelDiameter": 630
+  },
+  "body": {
+    "stations": [
+      {
+        "d": 0,
+        "halfWidth": 890,
+        "topHalfWidth": 850,
+        "bottomY": 300,
+        "shoulderY": 520,
+        "topY": 680
+      },
+      {
+        "d": 100,
+        "halfWidth": 900,
+        "topHalfWidth": 865,
+        "bottomY": 260,
+        "shoulderY": 570,
+        "topY": 730
+      },
+      {
+        "d": 250,
+        "halfWidth": 910,
+        "topHalfWidth": 875,
+        "bottomY": 220,
+        "shoulderY": 620,
+        "topY": 790
+      },
+      {
+        "d": 500,
+        "halfWidth": 910,
+        "topHalfWidth": 875,
+        "bottomY": 200,
+        "shoulderY": 670,
+        "topY": 830
+      },
+      {
+        "d": 750,
+        "halfWidth": 920,
+        "topHalfWidth": 870,
+        "bottomY": 200,
+        "shoulderY": 700,
+        "topY": 850
+      },
+      {
+        "d": 950,
+        "halfWidth": 920,
+        "topHalfWidth": 870,
+        "bottomY": 200,
+        "shoulderY": 720,
+        "topY": 865
+      },
+      {
+        "d": 1200,
+        "halfWidth": 860,
+        "topHalfWidth": 830,
+        "bottomY": 200,
+        "shoulderY": 740,
+        "topY": 890
+      },
+      {
+        "d": 1350,
+        "halfWidth": 860,
+        "topHalfWidth": 730,
+        "bottomY": 200,
+        "shoulderY": 780,
+        "topY": 1020
+      },
+      {
+        "d": 1500,
+        "halfWidth": 860,
+        "topHalfWidth": 660,
+        "bottomY": 200,
+        "shoulderY": 820,
+        "topY": 1220
+      },
+      {
+        "d": 1720,
+        "halfWidth": 860,
+        "topHalfWidth": 620,
+        "bottomY": 200,
+        "shoulderY": 880,
+        "topY": 1400
+      },
+      {
+        "d": 2000,
+        "halfWidth": 860,
+        "topHalfWidth": 620,
+        "bottomY": 200,
+        "shoulderY": 920,
+        "topY": 1450
+      },
+      {
+        "d": 2400,
+        "halfWidth": 865,
+        "topHalfWidth": 630,
+        "bottomY": 200,
+        "shoulderY": 940,
+        "topY": 1450
+      },
+      {
+        "d": 2530,
+        "halfWidth": 865,
+        "topHalfWidth": 630,
+        "bottomY": 200,
+        "shoulderY": 940,
+        "topY": 1450
+      },
+      {
+        "d": 2800,
+        "halfWidth": 865,
+        "topHalfWidth": 630,
+        "bottomY": 200,
+        "shoulderY": 940,
+        "topY": 1440
+      },
+      {
+        "d": 3150,
+        "halfWidth": 880,
+        "topHalfWidth": 610,
+        "bottomY": 200,
+        "shoulderY": 930,
+        "topY": 1380
+      },
+      {
+        "d": 3300,
+        "halfWidth": 885,
+        "topHalfWidth": 620,
+        "bottomY": 200,
+        "shoulderY": 920,
+        "topY": 1280
+      },
+      {
+        "d": 3600,
+        "halfWidth": 920,
+        "topHalfWidth": 700,
+        "bottomY": 200,
+        "shoulderY": 880,
+        "topY": 1060
+      },
+      {
+        "d": 3850,
+        "halfWidth": 920,
+        "topHalfWidth": 800,
+        "bottomY": 200,
+        "shoulderY": 820,
+        "topY": 980
+      },
+      {
+        "d": 4100,
+        "halfWidth": 895,
+        "topHalfWidth": 800,
+        "bottomY": 210,
+        "shoulderY": 740,
+        "topY": 920
+      },
+      {
+        "d": 4300,
+        "halfWidth": 870,
+        "topHalfWidth": 790,
+        "bottomY": 230,
+        "shoulderY": 680,
+        "topY": 860
+      },
+      {
+        "d": 4490,
+        "halfWidth": 825,
+        "topHalfWidth": 765,
+        "bottomY": 300,
+        "shoulderY": 600,
+        "topY": 780
+      }
+    ],
+    "windows": {
+      "windshield": [
+        1200,
+        1720
+      ],
+      "rear": [
+        3150,
+        3600
+      ],
+      "sides": [
+        [
+          1500,
+          2400
+        ],
+        [
+          2530,
+          3300
+        ]
+      ],
+      "pillars": [
+        [
+          2400,
+          2530
+        ]
+      ]
+    },
+    "stationStep": 50,
+    "wheelArches": {
+      "radius": 430,
+      "lift": 470,
+      "segments": 12
+    }
+  },
+  "wheels": {
+    "frontAxle": 950,
+    "rearAxle": 3575,
+    "track": 1515,
+    "radius": 315,
+    "width": 235,
+    "rimRadius": 215,
+    "spokes": 5
+  },
+  "materials": {
+    "Carpaint": {
+      "color": "#c2141c",
+      "metalness": 0.35,
+      "roughness": 0.35
+    },
+    "Window": {
+      "color": "#0c1216",
+      "metalness": 0.1,
+      "roughness": 0.08,
+      "opacity": 0.8
+    },
+    "Plastic": {
+      "color": "#0b0b0d",
+      "metalness": 0.05,
+      "roughness": 0.55
+    },
+    "Interior": {
+      "color": "#08080a",
+      "metalness": 0,
+      "roughness": 0.9
+    },
+    "Tyre": {
+      "color": "#101010",
+      "metalness": 0,
+      "roughness": 0.9,
+      "side": "double"
+    },
+    "Metal": {
+      "color": "#b7bcc4",
+      "metalness": 0.9,
+      "roughness": 0.25,
+      "side": "double"
+    },
+    "Brake": {
+      "color": "#3a3c40",
+      "metalness": 0.7,
+      "roughness": 0.5
+    },
+    "Caliper": {
+      "color": "#c21c1c",
+      "metalness": 0.2,
+      "roughness": 0.4
+    },
+    "BrakeLight": {
+      "color": "#6a0a0a",
+      "emissive": "#ff1008",
+      "emissiveIntensity": 0
+    },
+    "ReverseLight": {
+      "color": "#cfcfcf",
+      "emissive": "#fff4e6",
+      "emissiveIntensity": 0
+    },
+    "Headlight": {
+      "color": "#dfeaff",
+      "emissive": "#9fbaff",
+      "emissiveIntensity": 0.4
+    },
+    "Indicator": {
+      "color": "#ff9d1f",
+      "emissive": "#ff7b00",
+      "emissiveIntensity": 0.25
+    },
+    "BadgeRed": {
+      "color": "#c8102e",
+      "metalness": 0.2,
+      "roughness": 0.3
+    }
+  },
+  "details": {
+    "parts": [
+      {
+        "type": "box",
+        "name": "FrontSplitter",
+        "material": "Plastic",
+        "pos": [
+          0,
+          300,
+          2250
+        ],
+        "size": [
+          1500,
+          40,
+          40
+        ]
+      },
+      {
+        "type": "box",
+        "name": "GrilleBacking",
+        "material": "Plastic",
+        "pos": [
+          0,
+          580,
+          2248
+        ],
+        "size": [
+          820,
+          180,
+          14
+        ]
+      },
+      {
+        "type": "box",
+        "name": "GrilleSlat1",
+        "material": "Metal",
+        "pos": [
+          0,
+          520,
+          2258
+        ],
+        "size": [
+          760,
+          6,
+          10
+        ]
+      },
+      {
+        "type": "box",
+        "name": "GrilleSlat2",
+        "material": "Metal",
+        "pos": [
+          0,
+          580,
+          2258
+        ],
+        "size": [
+          760,
+          6,
+          10
+        ]
+      },
+      {
+        "type": "box",
+        "name": "GrilleSlat3",
+        "material": "Metal",
+        "pos": [
+          0,
+          640,
+          2258
+        ],
+        "size": [
+          760,
+          6,
+          10
+        ]
+      },
+      {
+        "type": "box",
+        "name": "BadgeTop",
+        "material": "BadgeRed",
+        "pos": [
+          0,
+          600,
+          2262
+        ],
+        "size": [
+          34,
+          34,
+          6
+        ],
+        "rot": [
+          0,
+          0,
+          45
+        ]
+      },
+      {
+        "type": "box",
+        "name": "BadgeLeft",
+        "material": "BadgeRed",
+        "pos": [
+          -24,
+          560,
+          2262
+        ],
+        "size": [
+          34,
+          34,
+          6
+        ],
+        "rot": [
+          0,
+          0,
+          45
+        ]
+      },
+      {
+        "type": "box",
+        "name": "BadgeRight",
+        "material": "BadgeRed",
+        "pos": [
+          24,
+          560,
+          2262
+        ],
+        "size": [
+          34,
+          34,
+          6
+        ],
+        "rot": [
+          0,
+          0,
+          45
+        ]
+      },
+      {
+        "type": "box",
+        "name": "HeadlightHousingL",
+        "material": "Plastic",
+        "pos": [
+          -520,
+          635,
+          2248
+        ],
+        "size": [
+          380,
+          130,
+          14
+        ]
+      },
+      {
+        "type": "box",
+        "name": "HeadlightHousingR",
+        "material": "Plastic",
+        "pos": [
+          520,
+          635,
+          2248
+        ],
+        "size": [
+          380,
+          130,
+          14
+        ]
+      },
+      {
+        "type": "quad",
+        "name": "HeadlightLensL",
+        "material": "Headlight",
+        "points": [
+          [
+            -740,
+            600,
+            2254
+          ],
+          [
+            -360,
+            595,
+            2254
+          ],
+          [
+            -360,
+            710,
+            2254
+          ],
+          [
+            -740,
+            700,
+            2254
+          ]
+        ]
+      },
+      {
+        "type": "quad",
+        "name": "HeadlightLensR",
+        "material": "Headlight",
+        "points": [
+          [
+            360,
+            595,
+            2254
+          ],
+          [
+            740,
+            600,
+            2254
+          ],
+          [
+            740,
+            700,
+            2254
+          ],
+          [
+            360,
+            710,
+            2254
+          ]
+        ]
+      },
+      {
+        "type": "quad",
+        "name": "HeadlightLowerL",
+        "material": "Headlight",
+        "points": [
+          [
+            -680,
+            580,
+            2254
+          ],
+          [
+            -360,
+            575,
+            2254
+          ],
+          [
+            -360,
+            600,
+            2254
+          ],
+          [
+            -680,
+            605,
+            2254
+          ]
+        ]
+      },
+      {
+        "type": "quad",
+        "name": "HeadlightLowerR",
+        "material": "Headlight",
+        "points": [
+          [
+            360,
+            575,
+            2254
+          ],
+          [
+            680,
+            580,
+            2254
+          ],
+          [
+            680,
+            605,
+            2254
+          ],
+          [
+            360,
+            600,
+            2254
+          ]
+        ]
+      },
+      {
+        "type": "box",
+        "name": "HeadlightDividerL",
+        "material": "Plastic",
+        "pos": [
+          -520,
+          650,
+          2255
+        ],
+        "size": [
+          12,
+          90,
+          10
+        ]
+      },
+      {
+        "type": "box",
+        "name": "HeadlightDividerR",
+        "material": "Plastic",
+        "pos": [
+          520,
+          650,
+          2255
+        ],
+        "size": [
+          12,
+          90,
+          10
+        ]
+      },
+      {
+        "type": "box",
+        "name": "FrontTopGrille",
+        "material": "Plastic",
+        "pos": [
+          0,
+          690,
+          2248
+        ],
+        "size": [
+          1000,
+          10,
+          40
+        ]
+      },
+      {
+        "type": "box",
+        "name": "IndicatorFL",
+        "material": "Indicator",
+        "pos": [
+          -700,
+          640,
+          2253
+        ],
+        "size": [
+          70,
+          60,
+          8
+        ]
+      },
+      {
+        "type": "box",
+        "name": "IndicatorFR",
+        "material": "Indicator",
+        "pos": [
+          700,
+          640,
+          2253
+        ],
+        "size": [
+          70,
+          60,
+          8
+        ]
+      },
+      {
+        "type": "box",
+        "name": "IntercoolerSurround",
+        "material": "Plastic",
+        "pos": [
+          0,
+          400,
+          2248
+        ],
+        "size": [
+          1000,
+          210,
+          14
+        ]
+      },
+      {
+        "type": "box",
+        "name": "Intercooler",
+        "material": "Plastic",
+        "pos": [
+          0,
+          400,
+          2253
+        ],
+        "size": [
+          900,
+          180,
+          10
+        ]
+      },
+      {
+        "type": "box",
+        "name": "IntercoolerSlat1",
+        "material": "Metal",
+        "pos": [
+          0,
+          330,
+          2258
+        ],
+        "size": [
+          880,
+          5,
+          8
+        ]
+      },
+      {
+        "type": "box",
+        "name": "IntercoolerSlat2",
+        "material": "Metal",
+        "pos": [
+          0,
+          375,
+          2258
+        ],
+        "size": [
+          880,
+          5,
+          8
+        ]
+      },
+      {
+        "type": "box",
+        "name": "IntercoolerSlat3",
+        "material": "Metal",
+        "pos": [
+          0,
+          420,
+          2258
+        ],
+        "size": [
+          880,
+          5,
+          8
+        ]
+      },
+      {
+        "type": "box",
+        "name": "IntercoolerSlat4",
+        "material": "Metal",
+        "pos": [
+          0,
+          465,
+          2258
+        ],
+        "size": [
+          880,
+          5,
+          8
+        ]
+      },
+      {
+        "type": "box",
+        "name": "SideIntakeL",
+        "material": "Plastic",
+        "pos": [
+          -680,
+          380,
+          2248
+        ],
+        "size": [
+          220,
+          130,
+          14
+        ]
+      },
+      {
+        "type": "box",
+        "name": "SideIntakeR",
+        "material": "Plastic",
+        "pos": [
+          680,
+          380,
+          2248
+        ],
+        "size": [
+          220,
+          130,
+          14
+        ]
+      },
+      {
+        "type": "cylinder",
+        "name": "FogL",
+        "material": "Headlight",
+        "pos": [
+          -680,
+          380,
+          2254
+        ],
+        "radius": 45,
+        "length": 10,
+        "axis": "z",
+        "segments": 16
+      },
+      {
+        "type": "cylinder",
+        "name": "FogR",
+        "material": "Headlight",
+        "pos": [
+          680,
+          380,
+          2254
+        ],
+        "radius": 45,
+        "length": 10,
+        "axis": "z",
+        "segments": 16
+      },
+      {
+        "type": "box",
+        "name": "HoodVent",
+        "material": "Plastic",
+        "pos": [
+          0,
+          850,
+          1700
+        ],
+        "size": [
+          560,
+          10,
+          340
+        ]
+      },
+      {
+        "type": "box",
+        "name": "HoodVentSlat1",
+        "material": "Metal",
+        "pos": [
+          0,
+          856,
+          1600
+        ],
+        "size": [
+          540,
+          5,
+          20
+        ]
+      },
+      {
+        "type": "box",
+        "name": "HoodVentSlat2",
+        "material": "Metal",
+        "pos": [
+          0,
+          856,
+          1700
+        ],
+        "size": [
+          540,
+          5,
+          20
+        ]
+      },
+      {
+        "type": "box",
+        "name": "HoodVentSlat3",
+        "material": "Metal",
+        "pos": [
+          0,
+          856,
+          1800
+        ],
+        "size": [
+          540,
+          5,
+          20
+        ]
+      },
+      {
+        "type": "box",
+        "name": "WiperCowl",
+        "material": "Plastic",
+        "pos": [
+          0,
+          900,
+          1085
+        ],
+        "size": [
+          1500,
+          20,
+          60
+        ]
+      },
+      {
+        "type": "box",
+        "name": "TaillightHousingL",
+        "material": "Plastic",
+        "pos": [
+          -540,
+          700,
+          -2248
+        ],
+        "size": [
+          380,
+          160,
+          14
+        ]
+      },
+      {
+        "type": "box",
+        "name": "TaillightHousingR",
+        "material": "Plastic",
+        "pos": [
+          540,
+          700,
+          -2248
+        ],
+        "size": [
+          380,
+          160,
+          14
+        ]
+      },
+      {
+        "type": "quad",
+        "name": "TaillightLensL",
+        "material": "BrakeLight",
+        "points": [
+          [
+            -700,
+            620,
+            -2254
+          ],
+          [
+            -360,
+            610,
+            -2254
+          ],
+          [
+            -360,
+            780,
+            -2254
+          ],
+          [
+            -700,
+            770,
+            -2254
+          ]
+        ]
+      },
+      {
+        "type": "quad",
+        "name": "TaillightLensR",
+        "material": "BrakeLight",
+        "points": [
+          [
+            360,
+            610,
+            -2254
+          ],
+          [
+            700,
+            620,
+            -2254
+          ],
+          [
+            700,
+            770,
+            -2254
+          ],
+          [
+            360,
+            780,
+            -2254
+          ]
+        ]
+      },
+      {
+        "type": "box",
+        "name": "TaillightClearL",
+        "material": "ReverseLight",
+        "pos": [
+          -400,
+          700,
+          -2253
+        ],
+        "size": [
+          80,
+          100,
+          8
+        ]
+      },
+      {
+        "type": "box",
+        "name": "TaillightClearR",
+        "material": "ReverseLight",
+        "pos": [
+          400,
+          700,
+          -2253
+        ],
+        "size": [
+          80,
+          100,
+          8
+        ]
+      },
+      {
+        "type": "box",
+        "name": "IndicatorRL",
+        "material": "Indicator",
+        "pos": [
+          -700,
+          700,
+          -2253
+        ],
+        "size": [
+          60,
+          80,
+          8
+        ]
+      },
+      {
+        "type": "box",
+        "name": "IndicatorRR",
+        "material": "Indicator",
+        "pos": [
+          700,
+          700,
+          -2253
+        ],
+        "size": [
+          60,
+          80,
+          8
+        ]
+      },
+      {
+        "type": "box",
+        "name": "RearDiffuser",
+        "material": "Plastic",
+        "pos": [
+          0,
+          330,
+          -2250
+        ],
+        "size": [
+          1200,
+          120,
+          30
+        ]
+      },
+      {
+        "type": "box",
+        "name": "DiffuserFin1",
+        "material": "Plastic",
+        "pos": [
+          -300,
+          300,
+          -2255
+        ],
+        "size": [
+          30,
+          100,
+          40
+        ]
+      },
+      {
+        "type": "box",
+        "name": "DiffuserFin2",
+        "material": "Plastic",
+        "pos": [
+          0,
+          300,
+          -2255
+        ],
+        "size": [
+          30,
+          100,
+          40
+        ]
+      },
+      {
+        "type": "box",
+        "name": "DiffuserFin3",
+        "material": "Plastic",
+        "pos": [
+          300,
+          300,
+          -2255
+        ],
+        "size": [
+          30,
+          100,
+          40
+        ]
+      },
+      {
+        "type": "box",
+        "name": "RearReflectorL",
+        "material": "Indicator",
+        "pos": [
+          -550,
+          400,
+          -2253
+        ],
+        "size": [
+          120,
+          40,
+          8
+        ]
+      },
+      {
+        "type": "box",
+        "name": "RearReflectorR",
+        "material": "Indicator",
+        "pos": [
+          550,
+          400,
+          -2253
+        ],
+        "size": [
+          120,
+          40,
+          8
+        ]
+      },
+      {
+        "type": "cylinder",
+        "name": "Exhaust",
+        "material": "Metal",
+        "pos": [
+          450,
+          330,
+          -2250
+        ],
+        "radius": 70,
+        "length": 80,
+        "axis": "z",
+        "segments": 20
+      },
+      {
+        "type": "box",
+        "name": "WingSupportL",
+        "material": "Carpaint",
+        "pos": [
+          -430,
+          1020,
+          -2030
+        ],
+        "size": [
+          60,
+          320,
+          160
+        ]
+      },
+      {
+        "type": "box",
+        "name": "WingSupportR",
+        "material": "Carpaint",
+        "pos": [
+          430,
+          1020,
+          -2030
+        ],
+        "size": [
+          60,
+          320,
+          160
+        ]
+      },
+      {
+        "type": "box",
+        "name": "WingBlade",
+        "material": "Carpaint",
+        "pos": [
+          0,
+          1210,
+          -2020
+        ],
+        "size": [
+          1280,
+          60,
+          340
+        ],
+        "rot": [
+          -8,
+          0,
+          0
+        ]
+      },
+      {
+        "type": "box",
+        "name": "WingEndplateL",
+        "material": "Carpaint",
+        "pos": [
+          -640,
+          1210,
+          -2020
+        ],
+        "size": [
+          20,
+          180,
+          340
+        ]
+      },
+      {
+        "type": "box",
+        "name": "WingEndplateR",
+        "material": "Carpaint",
+        "pos": [
+          640,
+          1210,
+          -2020
+        ],
+        "size": [
+          20,
+          180,
+          340
+        ]
+      },
+      {
+        "type": "box",
+        "name": "Antenna",
+        "material": "Plastic",
+        "pos": [
+          350,
+          1460,
+          -900
+        ],
+        "size": [
+          40,
+          24,
+          100
+        ]
+      },
+      {
+        "type": "box",
+        "name": "SideSkirtL",
+        "material": "Carpaint",
+        "pos": [
+          -865,
+          240,
+          -20
+        ],
+        "size": [
+          50,
+          80,
+          1760
+        ]
+      },
+      {
+        "type": "box",
+        "name": "SideSkirtR",
+        "material": "Carpaint",
+        "pos": [
+          865,
+          240,
+          -20
+        ],
+        "size": [
+          50,
+          80,
+          1760
+        ]
+      },
+      {
+        "type": "box",
+        "name": "SideSkirtLipL",
+        "material": "Plastic",
+        "pos": [
+          -870,
+          190,
+          -20
+        ],
+        "size": [
+          60,
+          40,
+          1760
+        ]
+      },
+      {
+        "type": "box",
+        "name": "SideSkirtLipR",
+        "material": "Plastic",
+        "pos": [
+          870,
+          190,
+          -20
+        ],
+        "size": [
+          60,
+          40,
+          1760
+        ]
+      },
+      {
+        "type": "box",
+        "name": "MirrorL",
+        "material": "Carpaint",
+        "pos": [
+          -930,
+          1050,
+          720
+        ],
+        "size": [
+          150,
+          95,
+          110
+        ]
+      },
+      {
+        "type": "box",
+        "name": "MirrorR",
+        "material": "Carpaint",
+        "pos": [
+          930,
+          1050,
+          720
+        ],
+        "size": [
+          150,
+          95,
+          110
+        ]
+      },
+      {
+        "type": "box",
+        "name": "MirrorGlassL",
+        "material": "Window",
+        "pos": [
+          -1010,
+          1050,
+          720
+        ],
+        "size": [
+          20,
+          70,
+          80
+        ]
+      },
+      {
+        "type": "box",
+        "name": "MirrorGlassR",
+        "material": "Window",
+        "pos": [
+          1010,
+          1050,
+          720
+        ],
+        "size": [
+          20,
+          70,
+          80
+        ]
+      },
+      {
+        "type": "box",
+        "name": "HandleFL",
+        "material": "Carpaint",
+        "pos": [
+          -878,
+          830,
+          450
+        ],
+        "size": [
+          20,
+          35,
+          140
+        ]
+      },
+      {
+        "type": "box",
+        "name": "HandleRL",
+        "material": "Carpaint",
+        "pos": [
+          -878,
+          830,
+          -700
+        ],
+        "size": [
+          20,
+          35,
+          140
+        ]
+      },
+      {
+        "type": "box",
+        "name": "FenderVentL",
+        "material": "Plastic",
+        "pos": [
+          -896,
+          760,
+          760
+        ],
+        "size": [
+          12,
+          110,
+          45
+        ]
+      },
+      {
+        "type": "box",
+        "name": "FenderVentR",
+        "material": "Plastic",
+        "pos": [
+          896,
+          760,
+          760
+        ],
+        "size": [
+          12,
+          110,
+          45
+        ]
+      },
+      {
+        "type": "box",
+        "name": "HandleFR",
+        "material": "Carpaint",
+        "pos": [
+          878,
+          830,
+          450
+        ],
+        "size": [
+          20,
+          35,
+          140
+        ]
+      },
+      {
+        "type": "box",
+        "name": "HandleRR",
+        "material": "Carpaint",
+        "pos": [
+          878,
+          830,
+          -700
+        ],
+        "size": [
+          20,
+          35,
+          140
+        ]
+      },
+      {
+        "type": "box",
+        "name": "SideIndicatorL",
+        "material": "Indicator",
+        "pos": [
+          -888,
+          780,
+          550
+        ],
+        "size": [
+          12,
+          40,
+          60
+        ]
+      },
+      {
+        "type": "box",
+        "name": "SideIndicatorR",
+        "material": "Indicator",
+        "pos": [
+          888,
+          780,
+          550
+        ],
+        "size": [
+          12,
+          40,
+          60
+        ]
+      },
+      {
+        "type": "halfCylinder",
+        "name": "WheelWellFL",
+        "material": "Interior",
+        "pos": [
+          -758,
+          315,
+          1295
+        ],
+        "radius": 380,
+        "length": 300,
+        "axis": "x",
+        "segments": 16
+      },
+      {
+        "type": "halfCylinder",
+        "name": "WheelWellFR",
+        "material": "Interior",
+        "pos": [
+          758,
+          315,
+          1295
+        ],
+        "radius": 380,
+        "length": 300,
+        "axis": "x",
+        "segments": 16
+      },
+      {
+        "type": "halfCylinder",
+        "name": "WheelWellRL",
+        "material": "Interior",
+        "pos": [
+          -758,
+          315,
+          -1330
+        ],
+        "radius": 380,
+        "length": 300,
+        "axis": "x",
+        "segments": 16
+      },
+      {
+        "type": "halfCylinder",
+        "name": "WheelWellRR",
+        "material": "Interior",
+        "pos": [
+          758,
+          315,
+          -1330
+        ],
+        "radius": 380,
+        "length": 300,
+        "axis": "x",
+        "segments": 16
+      },
+      {
+        "type": "box",
+        "name": "Floor",
+        "material": "Interior",
+        "pos": [
+          0,
+          600,
+          -100
+        ],
+        "size": [
+          1200,
+          80,
+          2200
+        ]
+      },
+      {
+        "type": "box",
+        "name": "RearBulkhead",
+        "material": "Interior",
+        "pos": [
+          0,
+          900,
+          -1150
+        ],
+        "size": [
+          1200,
+          650,
+          80
+        ]
+      },
+      {
+        "type": "box",
+        "name": "Dashboard",
+        "material": "Interior",
+        "pos": [
+          0,
+          930,
+          945
+        ],
+        "size": [
+          1080,
+          160,
+          300
+        ]
+      },
+      {
+        "type": "box",
+        "name": "DoorPanelL",
+        "material": "Interior",
+        "pos": [
+          -790,
+          850,
+          -100
+        ],
+        "size": [
+          40,
+          450,
+          1900
+        ]
+      },
+      {
+        "type": "box",
+        "name": "DoorPanelR",
+        "material": "Interior",
+        "pos": [
+          790,
+          850,
+          -100
+        ],
+        "size": [
+          40,
+          450,
+          1900
+        ]
+      },
+      {
+        "type": "box",
+        "name": "SeatL",
+        "material": "Interior",
+        "pos": [
+          -300,
+          760,
+          0
+        ],
+        "size": [
+          400,
+          300,
+          500
+        ]
+      },
+      {
+        "type": "box",
+        "name": "SeatR",
+        "material": "Interior",
+        "pos": [
+          300,
+          760,
+          0
+        ],
+        "size": [
+          400,
+          300,
+          500
+        ]
+      },
+      {
+        "type": "box",
+        "name": "SeatBackL",
+        "material": "Interior",
+        "pos": [
+          -300,
+          980,
+          -280
+        ],
+        "size": [
+          400,
+          650,
+          140
+        ]
+      },
+      {
+        "type": "box",
+        "name": "SeatBackR",
+        "material": "Interior",
+        "pos": [
+          300,
+          980,
+          -280
+        ],
+        "size": [
+          400,
+          650,
+          140
+        ]
+      },
+      {
+        "type": "box",
+        "name": "Console",
+        "material": "Interior",
+        "pos": [
+          0,
+          700,
+          300
+        ],
+        "size": [
+          200,
+          300,
+          900
+        ]
+      },
+      {
+        "type": "box",
+        "name": "RearviewMirror",
+        "material": "Interior",
+        "pos": [
+          0,
+          1200,
+          900
+        ],
+        "size": [
+          220,
+          70,
+          50
+        ]
+      },
+      {
+        "type": "torus",
+        "name": "SteeringWheel",
+        "material": "Interior",
+        "pos": [
+          -350,
+          980,
+          780
+        ],
+        "radius": 150,
+        "tube": 22,
+        "radialSegments": 8,
+        "tubularSegments": 24,
+        "rot": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "type": "arch",
+        "name": "ArchFlareFL",
+        "material": "Carpaint",
+        "x": -925,
+        "baseY": 200,
+        "lift": 470,
+        "radius": 430,
+        "z": 1295,
+        "tube": 26,
+        "segments": 24
+      },
+      {
+        "type": "arch",
+        "name": "ArchFlareFR",
+        "material": "Carpaint",
+        "x": 925,
+        "baseY": 200,
+        "lift": 470,
+        "radius": 430,
+        "z": 1295,
+        "tube": 26,
+        "segments": 24
+      },
+      {
+        "type": "arch",
+        "name": "ArchFlareRL",
+        "material": "Carpaint",
+        "x": -925,
+        "baseY": 200,
+        "lift": 470,
+        "radius": 430,
+        "z": -1330,
+        "tube": 26,
+        "segments": 24
+      },
+      {
+        "type": "arch",
+        "name": "ArchFlareRR",
+        "material": "Carpaint",
+        "x": 925,
+        "baseY": 200,
+        "lift": 470,
+        "radius": 430,
+        "z": -1330,
+        "tube": 26,
+        "segments": 24
+      },
+      {
+        "type": "box",
+        "name": "HoodBulge",
+        "material": "Carpaint",
+        "pos": [
+          0,
+          838,
+          1700
+        ],
+        "size": [
+          680,
+          18,
+          420
+        ]
+      },
+      {
+        "type": "quad",
+        "name": "HeadlightTopL",
+        "material": "Headlight",
+        "points": [
+          [
+            -820,
+            702,
+            2245
+          ],
+          [
+            -340,
+            702,
+            2245
+          ],
+          [
+            -340,
+            760,
+            2095
+          ],
+          [
+            -820,
+            760,
+            2095
+          ]
+        ]
+      },
+      {
+        "type": "quad",
+        "name": "HeadlightTopR",
+        "material": "Headlight",
+        "points": [
+          [
+            340,
+            702,
+            2245
+          ],
+          [
+            820,
+            702,
+            2245
+          ],
+          [
+            820,
+            760,
+            2095
+          ],
+          [
+            340,
+            760,
+            2095
+          ]
+        ]
+      },
+      {
+        "type": "box",
+        "name": "MirrorArmL",
+        "material": "Carpaint",
+        "pos": [
+          -870,
+          1040,
+          790
+        ],
+        "size": [
+          80,
+          40,
+          60
+        ]
+      },
+      {
+        "type": "box",
+        "name": "MirrorArmR",
+        "material": "Carpaint",
+        "pos": [
+          870,
+          1040,
+          790
+        ],
+        "size": [
+          80,
+          40,
+          60
+        ]
+      },
+      {
+        "type": "box",
+        "name": "TrunkLip",
+        "material": "Carpaint",
+        "pos": [
+          0,
+          880,
+          -2100
+        ],
+        "size": [
+          1200,
+          25,
+          70
+        ]
+      },
+      {
+        "type": "box",
+        "name": "WingGurney",
+        "material": "Plastic",
+        "pos": [
+          0,
+          1230,
+          -2185
+        ],
+        "size": [
+          1240,
+          30,
+          18
+        ]
+      },
+      {
+        "type": "quad",
+        "name": "HeadlightTopHousingL",
+        "material": "Plastic",
+        "points": [
+          [
+            -840,
+            696,
+            2245
+          ],
+          [
+            -320,
+            696,
+            2245
+          ],
+          [
+            -320,
+            754,
+            2090
+          ],
+          [
+            -840,
+            754,
+            2090
+          ]
+        ]
+      },
+      {
+        "type": "quad",
+        "name": "HeadlightTopHousingR",
+        "material": "Plastic",
+        "points": [
+          [
+            320,
+            696,
+            2245
+          ],
+          [
+            840,
+            696,
+            2245
+          ],
+          [
+            840,
+            754,
+            2090
+          ],
+          [
+            320,
+            754,
+            2090
+          ]
+        ]
+      },
+      {
+        "type": "box",
+        "name": "FenderVentSlatL",
+        "material": "Metal",
+        "pos": [
+          -902,
+          760,
+          760
+        ],
+        "size": [
+          6,
+          80,
+          6
+        ]
+      },
+      {
+        "type": "box",
+        "name": "FenderVentSlatR",
+        "material": "Metal",
+        "pos": [
+          902,
+          760,
+          760
+        ],
+        "size": [
+          6,
+          80,
+          6
+        ]
+      },
+      {
+        "type": "cylinder",
+        "name": "FuelCap",
+        "material": "Plastic",
+        "pos": [
+          -895,
+          860,
+          -1100
+        ],
+        "radius": 55,
+        "length": 6,
+        "axis": "x",
+        "segments": 24
+      },
+      {
+        "type": "torus",
+        "name": "FuelRing",
+        "material": "Metal",
+        "pos": [
+          -900,
+          860,
+          -1100
+        ],
+        "radius": 55,
+        "tube": 6,
+        "rot": [
+          0,
+          90,
+          0
+        ],
+        "radialSegments": 8,
+        "tubularSegments": 24
+      },
+      {
+        "type": "quad",
+        "name": "IndicatorTopL",
+        "material": "Indicator",
+        "points": [
+          [
+            -880,
+            700,
+            2245
+          ],
+          [
+            -800,
+            700,
+            2245
+          ],
+          [
+            -800,
+            746,
+            2130
+          ],
+          [
+            -880,
+            746,
+            2130
+          ]
+        ]
+      },
+      {
+        "type": "quad",
+        "name": "IndicatorTopR",
+        "material": "Indicator",
+        "points": [
+          [
+            800,
+            700,
+            2245
+          ],
+          [
+            880,
+            700,
+            2245
+          ],
+          [
+            880,
+            746,
+            2130
+          ],
+          [
+            800,
+            746,
+            2130
+          ]
+        ]
+      },
+      {
+        "type": "polyline",
+        "name": "HoodSeamL",
+        "material": "Plastic",
+        "points": [
+          [
+            -680,
+            690,
+            2240
+          ],
+          [
+            -680,
+            735,
+            2140
+          ],
+          [
+            -680,
+            790,
+            2000
+          ],
+          [
+            -680,
+            820,
+            1800
+          ],
+          [
+            -680,
+            840,
+            1600
+          ],
+          [
+            -680,
+            855,
+            1400
+          ],
+          [
+            -680,
+            870,
+            1250
+          ]
+        ],
+        "tube": 6,
+        "segments": 40
+      },
+      {
+        "type": "polyline",
+        "name": "HoodSeamR",
+        "material": "Plastic",
+        "points": [
+          [
+            680,
+            690,
+            2240
+          ],
+          [
+            680,
+            735,
+            2140
+          ],
+          [
+            680,
+            790,
+            2000
+          ],
+          [
+            680,
+            820,
+            1800
+          ],
+          [
+            680,
+            840,
+            1600
+          ],
+          [
+            680,
+            855,
+            1400
+          ],
+          [
+            680,
+            870,
+            1250
+          ]
+        ],
+        "tube": 6,
+        "segments": 40
+      }
+    ]
+  }
+}

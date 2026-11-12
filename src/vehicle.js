@@ -2,7 +2,7 @@ import * as THREE from 'three';
 
 const baseColors = new WeakMap();
 
-export function createVehicle(scene, physics, start, tangent, gltfScene, colliders = {}, environment = null) {
+export function createVehicle(scene, physics, start, tangent, gltfScene, colliders = {}, environment = null, config = {}) {
   const group = new THREE.Group();
   const chassis = new THREE.Group();
 
@@ -24,9 +24,11 @@ export function createVehicle(scene, physics, start, tangent, gltfScene, collide
   const bbox = new THREE.Box3().setFromObject(model);
   const size = new THREE.Vector3();
   bbox.getSize(size);
-  const targetWidth = 2.2;
-  const scale = targetWidth / size.x;
-  model.scale.setScalar(scale);
+  const targetWidth = config.targetWidth === undefined ? 2.2 : config.targetWidth;
+  if (targetWidth != null) {
+    const scale = targetWidth / size.x;
+    model.scale.setScalar(scale);
+  }
   model.position.y = -(bbox.min.y + bbox.max.y) / 2;
 
   chassis.add(model);
@@ -37,10 +39,15 @@ export function createVehicle(scene, physics, start, tangent, gltfScene, collide
 
   const wheelNodes = [];
   model.traverse((node) => {
-    if (node.name === 'Circle_7' || node.name === 'Circle001_9' || node.name === 'Circle.001_9') {
-      wheelNodes.push(node);
-    }
+    if (node.userData && node.userData.vehicleWheel) wheelNodes.push(node);
   });
+  if (!wheelNodes.length) {
+    model.traverse((node) => {
+      if (node.name === 'Circle_7' || node.name === 'Circle001_9' || node.name === 'Circle.001_9') {
+        wheelNodes.push(node);
+      }
+    });
+  }
 
   const tmpPos = new THREE.Vector3();
   const tmpNrm = new THREE.Vector3();
@@ -143,13 +150,15 @@ export function createVehicle(scene, physics, start, tangent, gltfScene, collide
   const brakeLightMaterials = [];
   const reverseLightMaterials = [];
   const lightMaterialMap = new Map();
+  const brakeLightName = config.brakeLightMaterial ?? 'Material.001';
+  const reverseLightName = config.reverseLightMaterial ?? 'Reverse';
 
   function getLightMaterial(material) {
-    if (!material || (material.name !== 'Material.001' && material.name !== 'Reverse')) return material;
+    if (!material || (material.name !== brakeLightName && material.name !== reverseLightName)) return material;
     let clone = lightMaterialMap.get(material);
     if (!clone) {
       clone = material.clone();
-      if (material.name === 'Material.001') {
+      if (material.name === brakeLightName) {
         clone.color.setHex(0x2a0000);
         clone.emissive.setRGB(1, 0.02, 0.01);
         clone.emissiveIntensity = 0;
@@ -210,7 +219,11 @@ export function createVehicle(scene, physics, start, tangent, gltfScene, collide
   const envMaterials = new Set();
 
   if (environment) {
-    const envIntensity = { Carpaint: 0.18, Metal: 0.18, Plastic: 0.2, Tyre: 0.15, Window: 0.08 };
+    const envIntensity = {
+      Carpaint: 0.18, Metal: 0.18, Plastic: 0.2, Tyre: 0.15, Window: 0.08,
+      Interior: 0.04, Brake: 0.1, Caliper: 0.15, Headlight: 0.3, Indicator: 0.2,
+      BrakeLight: 0.1, ReverseLight: 0.1
+    };
     group.traverse((node) => {
       if (!node.isMesh) return;
       const list = Array.isArray(node.material) ? node.material : [node.material];
@@ -278,8 +291,14 @@ export function createVehicle(scene, physics, start, tangent, gltfScene, collide
   const yaw = Math.atan2(tangent.x, tangent.z);
   bodyDesc.setRotation({ x: 0, y: Math.sin(yaw / 2), z: 0, w: Math.cos(yaw / 2) });
   const body = physics.world.createRigidBody(bodyDesc);
+  const colliderConfig = config.collider ?? {};
+  const halfExtents = colliderConfig.halfExtents ?? [1.1, 0.4, 2.0];
+  const colliderOffset = colliderConfig.offset ?? [0, 0.08, 0];
+  const colliderDensity = colliderConfig.density ?? 120;
   const bodyCollider = physics.world.createCollider(
-    physics.RAPIER.ColliderDesc.cuboid(1.1, 0.4, 2.0).setDensity(120).setTranslation(0, 0.08, 0),
+    physics.RAPIER.ColliderDesc.cuboid(halfExtents[0], halfExtents[1], halfExtents[2])
+      .setDensity(colliderDensity)
+      .setTranslation(colliderOffset[0], colliderOffset[1], colliderOffset[2]),
     body
   );
 
@@ -315,11 +334,15 @@ export function createVehicle(scene, physics, start, tangent, gltfScene, collide
     engineBrakeTorque: 20,
     rollingResistance: 0.015,
     dirtRollingResistance: 0.06,
-    aeroDrag: 0.6
+    aeroDrag: 0.6,
+    gearRatios: [6.0, 4.0, 2.9, 2.2, 1.75],
+    reverseRatio: 6.0,
+    frontDrive: 1.0,
+    rearDrive: 0.0,
+    ...(config.tuning ?? {})
   };
+  tuning.wheelRadius = wheelRadiusAvg;
 
-  const GEAR_RATIOS = [6.0, 4.0, 2.9, 2.2, 1.75];
-  const REVERSE_RATIO = 6.0;
   const SHIFT_COOLDOWN = 0.3;
   const CLUTCH_TIME = 0.15;
 
@@ -333,8 +356,8 @@ export function createVehicle(scene, physics, start, tangent, gltfScene, collide
   let reverseRamp = 0;
 
   function ratioForGear(g) {
-    if (g > 0) return GEAR_RATIOS[g - 1];
-    if (g < 0) return REVERSE_RATIO;
+    if (g > 0) return tuning.gearRatios[g - 1];
+    if (g < 0) return tuning.reverseRatio;
     return 0;
   }
 
@@ -386,7 +409,7 @@ export function createVehicle(scene, physics, start, tangent, gltfScene, collide
       if (currentGear < 1 && shiftCooldown <= 0) {
         engageGear(1);
       } else if (currentGear >= 1 && !shifting && shiftCooldown <= 0) {
-        if (currentRpm >= tuning.upshiftRPM && currentGear < GEAR_RATIOS.length) {
+        if (currentRpm >= tuning.upshiftRPM && currentGear < tuning.gearRatios.length) {
           engageGear(currentGear + 1);
         } else if (currentRpm <= tuning.downshiftRPM && currentGear > 1) {
           engageGear(currentGear - 1);
@@ -621,7 +644,8 @@ export function createVehicle(scene, physics, start, tangent, gltfScene, collide
       const braking = input.braking > 0.05 && input.throttle < 0.05 && currentGear >= 0;
       const serviceBrake = braking ? input.braking * tuning.brakeForce * gripScale : 0;
       const handbrake = input.handbrake && i >= 2 ? tuning.handbrakeForce * gripScale : serviceBrake;
-      controller.setWheelEngineForce(i, i < 2 ? driveForce * 0.5 : 0);
+      const driveShare = i < 2 ? tuning.frontDrive : tuning.rearDrive;
+      controller.setWheelEngineForce(i, driveForce * driveShare * 0.5);
       controller.setWheelBrake(i, handbrake);
       controller.setWheelSteering(i, i < 2 ? currentSteer : 0);
     }
@@ -684,7 +708,7 @@ export function createVehicle(scene, physics, start, tangent, gltfScene, collide
   }
 
   function addGui(gui) {
-    const f = gui.addFolder('Panda tuning');
+    const f = gui.addFolder(config.label ? `${config.label} tuning` : 'Vehicle tuning');
     f.add(tuning, 'suspensionRestLength', 0.15, 1.1, 0.01);
     f.add(tuning, 'suspensionStiffness', 5, 80, 0.5);
     f.add(tuning, 'maxSuspensionTravel', 0.05, 1, 0.01);
