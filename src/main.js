@@ -11,6 +11,7 @@ import { createSkidMarks } from './skidmarks.js';
 import { createParticles } from './particles.js';
 import { createAudio } from './audio.js';
 import { createHud } from './hud.js';
+import { VEHICLE_MODELS } from './models.js';
 import './style.css';
 
 const PROGRESS_SAMPLES = 600;
@@ -50,11 +51,18 @@ async function bootstrap() {
   const input = createInput();
 
   const loader = new GLTFLoader();
-  const pandaGltf = await loader.loadAsync('models/panda.glb?t=' + Date.now());
+  const modelScenes = {};
+  await Promise.all(Object.entries(VEHICLE_MODELS).map(async ([key, model]) => {
+    const gltf = await loader.loadAsync(model.url + '?t=' + Date.now());
+    modelScenes[key] = gltf.scene;
+  }));
   const gui = new GUI({ title: 'Panda Racing Debug' });
   gui.close();
-  const settings = { seed: 1337, audio: true, chassisTransparent: false, regenerate: () => resetWorld(settings.seed) };
+  const settings = { seed: 1337, model: 'lancer', audio: true, chassisTransparent: false, regenerate: () => resetWorld(settings.seed) };
   gui.add(settings, 'seed', 1, 999999, 1);
+  gui.add(settings, 'model', Object.fromEntries(
+    Object.entries(VEHICLE_MODELS).map(([key, model]) => [model.label, key])
+  )).name('Modello').onChange(() => resetWorld(settings.seed));
   gui.add(settings, 'chassisTransparent').name('Chassis trasparente').onChange((v) => {
     if (vehicle) vehicle.setChassisTransparent(v);
   });
@@ -221,7 +229,11 @@ async function bootstrap() {
     skidmarks.clear();
     particles.clear();
     track = createTrack(scene, physics, materials, seed);
-    vehicle = createVehicle(scene, physics, spawnPointAt(0), track.tangent, pandaGltf.scene, track.colliders, environment);
+    const model = VEHICLE_MODELS[settings.model];
+    vehicle = createVehicle(
+      scene, physics, spawnPointAt(0), track.tangent,
+      modelScenes[settings.model], track.colliders, environment, model.config
+    );
     vehicle.setChassisTransparent(settings.chassisTransparent);
     vehicleGuiFolder = vehicle.addGui(gui);
     buildProgressSamples();

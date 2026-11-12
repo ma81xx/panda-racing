@@ -3,12 +3,14 @@
 ## Commands
 
 ```
-npm run dev        # start dev server (Vite, --host 0.0.0.0)
-npm run build      # production build to dist/
-npm run preview    # preview production build (--host 0.0.0.0)
+npm run dev              # start dev server (Vite, --host 0.0.0.0)
+npm run build            # production build to dist/
+npm run preview          # preview production build (--host 0.0.0.0)
+npm run models:lancer    # regenerate the Lancer GLB from its blueprint spec
+npm run models:validate  # validate wheel nodes, bbox and materials of the Lancer GLB
 ```
 
-No lint, typecheck, format, or test commands exist.
+No lint, typecheck, format, or test commands exist. `models:validate` is the only asset validation step.
 
 ## Stack
 
@@ -25,7 +27,7 @@ No lint, typecheck, format, or test commands exist.
 - Vite runs with **zero config** — there is no `vite.config.js`.
 - CI (`.github/workflows/build-and-deploy.yml`) deploys to GitHub Pages on push to `main`. The build step appends `--base` from the Pages action.
 - `npm ci` (not `npm install`) is used in CI.
-- **Static assets go in `public/`** (Vite copies them to `dist/` as-is). The car model lives at `public/models/panda.glb`.
+- **Static assets go in `public/`** (Vite copies them to `dist/` as-is). Vehicle models live in `public/models/`: `panda.glb` (legacy) and `mitsubishi-lancer-evo9.glb` (generated, default).
 
 ## Architecture
 
@@ -34,8 +36,10 @@ Single-package vanilla JS app. No TypeScript, no framework.
 ```
 index.html      # entry — single `<canvas id="app">` + touch controls
 public/models/panda.glb  # Fiat Panda car model (Sketchfab, axis-flipped hierarchy)
+public/models/mitsubishi-lancer-evo9.glb  # generated Lancer Evo IX model (default)
 src/
-  main.js       # bootstrap: loads GLB async, creates scene/physics/track/vehicle, game loop, resetWorld(); animates sky cloud drift
+  main.js       # bootstrap: loads both GLBs async, creates scene/physics/track/vehicle, model selector, game loop, resetWorld(); animates sky cloud drift
+  models.js     # vehicle model manifest: URL + per-model collider/tuning/material config
   scene.js      # THREE.js scene, renderer, camera, lights, materials, physical Sky (Preetham + procedural clouds)
   physics.js    # Rapier3D world + fixed-timestep accumulator (120 Hz)
   vehicle.js    # Rapier vehicle controller + GLB car + wheel steering/spinning + suspension/chassis visual
@@ -47,18 +51,25 @@ src/
   input.js      # keyboard + analog touch strip + gamepad input extraction
   debugRenderer.js  # Rapier physics wireframe toggle
   style.css
+tools/blueprint-modeler/
+  build.mjs     # spec JSON -> GLB CLI (Node, uses three's GLTFExporter)
+  specs/        # measured blueprint data (Lancer Evo IX spec)
+  lib/          # loft + wheel arches, quad/polyline details, wheels, materials, export, validate
+  viewer.html   # dev-server viewer: ?model=...&angle=side|front|rear|top|high|iso|low&auto=0
+  reference/    # blueprint images, kept out of the production bundle
+  README.md     # reusable blueprint-to-GLB workflow
 ```
 
-Each module exports a `createX()` factory function.
+Each runtime module exports a `createX()` factory function. `src/models.js` exports the `VEHICLE_MODELS` manifest.
 
 ## Design goals
 
-Rally driving simulator featuring a **Fiat Panda** rendered from `panda.glb`.
+Rally driving simulator featuring a **Mitsubishi Lancer Evo IX** (default) and the legacy **Fiat Panda**, selectable from the debug GUI. Models are declared in `src/models.js`.
 
 - **Track** (`track.js`): closed CatmullRom loop, seeded procedurally (seed in GUI). Dirt road is **concave** (`DIP_DEPTH` ~0.12) and irregular (`irregularOffset`), 12m wide with 7 cross-section points. Terrain is a height grid that sits ~0.5 m below the road surface and **descends monotonically** to a low base (`terrainHeightAt`, `smoothstep` over `SHOULDER`) — no bump beside the road; it is a **large 800×800 m grid (segs 120, ~6.7 m/cell)** so its footprint always **occludes the below-horizon (dark) part of the sky dome**; **terrain has its own trimesh collider** (built from the *same* geometry, so it scales automatically) with low friction (0.35) for slippery off-road. Vegetation is **instanced** (`InstancedMesh`, ~600 plants + ~1800 grass blades near the road) so it is cheap to render dense; all instanced meshes set `frustumCulled = false` (their bounding sphere is a single unit geometry and would be culled incorrectly on a large track). Trees/bushes line the road at random offsets; pines/round trees within ~24 m also get **static ball colliders** (hazard) so the car crashes instead of passing through. Physics collider is a **thick road slab** (~0.8 m) whose cross-section has 9 points: the 7 road points (same positions/height as the visual road) **plus two extra "wing" points** 3.5 m beyond each road edge, dropped to `terrainHeightAt(...) - 0.15` so the slab sides are gentle ramps that end **buried under the terrain** instead of vertical walls (avoids the "invisible wall" at the road edge). The side walls only close the slab at the buried wing tips. Visual road and the 7 collider road points must stay in sync. Exposes `colliders: { road, terrain }` (used by `vehicle.js` for surface detection) and `hazards.colliders` (used by `main.js` for impact detection).
-- **Vehicle** (`vehicle.js`): GLB model cloned and scaled to ~2.2m wide; `Circle_7` / `Circle.001_9` nodes are extracted into `pivot → orientation → spinner` groups for steering (pivot `rotation.y`) and spinning (spinner `rotation.y`). The visual model lives in a **`chassis` group** (child of `group`) so it can tilt in roll/pitch from suspension compression without moving the wheel pivots; wheel pivots also translate vertically by suspension travel. Wheel rotation uses Rapier's **`controller.wheelRotation(i)`** (accumulated). Body mass ≈ 850 kg (density 100), **CCD enabled**, linear/angular damping. Suspension/damping tuned to avoid high-speed vibration.
+- **Vehicle** (`vehicle.js`): GLB model cloned and configured per model (`src/models.js`). Wheels are found via `userData.vehicleWheel` (generated models) with a legacy fallback to `Circle_7` / `Circle001_9` / `Circle.001_9` (Panda), then extracted into `pivot → orientation → spinner` groups for steering (pivot `rotation.y`) and spinning (spinner `rotation.y`). `config.targetWidth` normalizes the width (Panda 2.2 m); `null` keeps the generated real-world scale (Lancer 1.77 m body). The visual model lives in a **`chassis` group** (child of `group`) so it can tilt in roll/pitch from suspension compression without moving the wheel pivots; wheel pivots also translate vertically by suspension travel. Wheel rotation uses Rapier's **`controller.wheelRotation(i)`** (accumulated). Collider half extents/offset/density and the whole tuning object (suspension, grip, brakes, `gearRatios`, `reverseRatio`, …) come from the model config; **CCD enabled**, linear/angular damping. Lancer mass ≈ 1400 kg; Panda ≈ 850 kg.
 - **Tire grip** via `frictionSlip`, `frontGrip`, `rearGrip` — front-biased to match FWD layout. `readState()` detects the surface under each wheel via `wheelGroundObject(i)` (terrain trimesh = `dirt`) and re-applies a lower `frictionSlip` (`offRoadGrip`, default 0.5) when a wheel leaves the road. **Note:** the raycast vehicle controller uses only the wheel's `frictionSlip` (clamped max lateral impulse), it ignores the ground collider's friction — so per-surface grip MUST be done via `setWheelFrictionSlip`, not ground material.
-- **Forces**: engine split 100% front / 25% rear (FWD), brake on all four, handbrake rear-only. Steering is **speed-sensitive** (`maxSteer` at low speed → `highSpeedSteer` via `smoothstep` 2–28 m/s) with **asymmetric rates** (`steerSpeed` turn-in, `steerReturn` self-centering). Throttle/brake are **analog 0..1** (gamepad triggers) and pass through `throttleRamp`/`reverseRamp` (`throttleRampUp` 0.15 s, `throttleRampDown` 0.05 s). Reverse engages only after the brake input is held while stopped for `reverseHold` (0.35 s) — prevents accidental reverse when braking.
+- **Forces**: engine drive split is per model via `tuning.frontDrive` / `tuning.rearDrive` (Panda 100/0 FWD, Lancer 50/50 AWD), brake on all four, handbrake rear-only. Steering is **speed-sensitive** (`maxSteer` at low speed → `highSpeedSteer` via `smoothstep` 2–28 m/s) with **asymmetric rates** (`steerSpeed` turn-in, `steerReturn` self-centering). Throttle/brake are **analog 0..1** (gamepad triggers) and pass through `throttleRamp`/`reverseRamp` (`throttleRampUp` 0.15 s, `throttleRampDown` 0.05 s). Reverse engages only after the brake input is held while stopped for `reverseHold` (0.35 s) — prevents accidental reverse when braking.
 - **Vehicle state** (`vehicle.state` after each fixed step): `speed` (forward speed via `currentVehicleSpeed`), `slipAmount` (lateral slip 0..1 from lateral velocity), `skids[4]` (per-wheel bool for skidmarks), `contactPoints[4]` (world-space wheel contact), `surfaces[4]`, `compressions[4]` (suspension travel), `offRoad`, `flipped` (up vector check). Consumed by `skidmarks.js`, `particles.js`, `audio.js` and `main.js`.
 - **Effects**: `skidmarks.js` draws black quads at contact points when `skids[i]` (handbrake/brake/lateral drift), `particles.js` emits pooled dust puffs off-road and smoke when drifting, `audio.js` (Web Audio, lazily resumed on first input) drives engine pitch from speed, screech from slip, rumble off-road and impact thud. Off-road dust is emitted from **all 4 wheels** that have a contact point (`emitDust` loops the whole array — do not `break` on the first one). `main.js` detects impacts via `world.contactPair(vehicle.bodyCollider, hazardCollider)` (sum of `contactImpulse`) → camera shake + audio thud.
 - **Sky & atmosphere** (`scene.js` + `main.js`): the sky is **`THREE.Sky`** (Preetham atmospheric model) scaled to ~700, with `sunPosition` set from the (constant) sun light direction `normalize(sunOffset)` so the **sun disc aligns with shadows**; `showSunDisc` 1, `turbidity 6`, `rayleigh 1.6`, `mie*` defaults, and **procedural drifting clouds** (`cloudCoverage 0.35`, `cloudElevation 0.45`, …) whose `time` uniform is advanced by `delta` each frame in `main.js`. `scene.background` and `scene.fog` share the **horizon color** `0xbfd9f2` and the dome is a `ShaderMaterial` (fog:false) so it never fogs over. The sky dome's below-horizon (near-black) part must stay **occluded by terrain** — see the gotcha below.
@@ -69,12 +80,15 @@ Rally driving simulator featuring a **Fiat Panda** rendered from `panda.glb`.
 
 - **Rapier requires async init**: `createPhysics()` calls `await RAPIER.init()` before creating the world. Do not use Rapier synchronously.
 - **Fixed-timestep is 120 Hz** (`FIXED_DT = 1/120` in `physics.js`). The accumulator must match `world.integrationParameters.dt`; custom `IntegrationParameters` also raise `numSolverIterations` (12) and `numInternalPgsIterations` (2). Never rely on `world.timestep = x` — it's a no-op JS property.
-- **GLB load is async**: `main.js` must `await loader.loadAsync(...)` and pass `pandaGltf.scene` into `createVehicle`. The URL is cache-busted with `?t=Date.now()`.
+- **GLB load is async**: `main.js` loads every entry of `VEHICLE_MODELS` in parallel and passes the selected scene + `config` into `createVehicle`. URLs are cache-busted with `?t=Date.now()`.
+- **Vehicle models are spec-driven**: edit `tools/blueprint-modeler/specs/lancer-evo9.json`, then run `npm run models:lancer`; never hand-edit the generated GLB. `npm run models:validate` checks the 4 wheel nodes, wheel radius/positions, body bbox and required materials. Visual check: `viewer.html?angle=iso&auto=0`.
+- **Wheel metadata contract**: generated wheel nodes are `Wheel_FL/FR/RL/RR`, centered on the hub, with `userData.vehicleWheel`, `radius`, `axle`, `side`. `vehicle.js` derives pivot position and radius from the node bbox, so keep geometry centered. The legacy `Circle_7` / `Circle001_9` / `Circle.001_9` fallback must stay for the Panda.
+- **Per-model config**: `src/models.js` owns `targetWidth`, collider, light material names and the `tuning` overrides (including `gearRatios`/`reverseRatio`). Set `targetWidth: null` for models already authored at real scale (Lancer); a number rescales the whole model, including effective wheelbase/track.
 - **Wheel winding/order**: GLTF nodes with baked matrices keep `matrixAutoUpdate` semantics — extract wheel meshes via `attach()` into controlled pivot groups; don't mutate their matrices directly.
 - **Tuning applied only on change**: `syncTuning()` in `vehicle.js` re-applies suspension params only when the GUI values actually change (avoiding per-frame Rapier setter churn that destabilizes the solver).
 - **Road geometry winding matters**: indices are ordered so the front face points up; the terrain and collider geometry must use the same heights (`terrainHeightAt`) so physics matches visuals and nothing pokes through.
 - **Sky dome must stay occluded below the horizon**: `THREE.Sky` renders near-black below its equator. The terrain footprint (800×800 m) is **larger than the sky dome** (scale ~700) so every sightline below the horizon hits terrain first; fog `far` (380) sits inside the terrain radius so the fogged edge blends into the sky's horizon color. If you resize either, keep **terrain footprint ≥ sky dome footprint** and **fog far ≤ terrain radius**, otherwise a dark band appears at the horizon.
-- **Reset/regenerate**: all track visuals live in `track.group` and the car in `vehicle.group`; `resetWorld()` removes both from the scene and clears every rigid body before rebuilding.
+- **Reset/regenerate**: all track visuals live in `track.group` and the car in `vehicle.group`; `resetWorld()` removes both from the scene and clears every rigid body before rebuilding. The GUI model selector and track seed both call it, so the current model config is re-applied on every rebuild.
 - **No build tooling config**: no ESLint, Prettier, or tsconfig. Do not add tooling unless asked.
 - **The app targets browsers directly**: single `<canvas>`, no SPA, router, or SSR.
 - **Touch controls** are rendered server-side in `index.html`: drive buttons use `[data-control]`, steering uses the absolute analog `[data-steer-strip]` (deadzone + expo in `input.js`). `input.poll()` (called each frame in `main.js`) samples the first connected gamepad (left stick/D-pad steer, triggers throttle/brake, X/RB handbrake). Touch controls are hidden on fine-pointer devices; keyboard and gamepad remain.

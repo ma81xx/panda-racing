@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Blueprint Model Viewer</title>
+    <style>
+      html, body { margin: 0; height: 100%; overflow: hidden; background: #101418; color: #e8edf2; font: 13px/1.4 system-ui, sans-serif; }
+      canvas { display: block; }
+      #info { position: fixed; left: 12px; top: 12px; padding: 8px 10px; background: rgba(8, 12, 16, 0.72); border: 1px solid rgba(255,255,255,0.12); border-radius: 6px; white-space: pre; }
+      #info a { color: #7fc4ff; }
+    </style>
+  </head>
+  <body>
+    <div id="info">caricamento...</div>
+    <script type="module">
+      import * as THREE from 'three';
+      import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+      import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+      import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+
+      const params = new URLSearchParams(location.search);
+      const modelUrl = params.get('model') || '/models/mitsubishi-lancer-evo9.glb';
+      const angle = params.get('angle') || 'iso';
+      const autoRotate = params.get('auto') !== '0';
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.1;
+      document.body.appendChild(renderer.domElement);
+
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x101418);
+
+      const pmrem = new THREE.PMREMGenerator(renderer);
+      scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+      const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.05, 200);
+
+      const hemi = new THREE.HemisphereLight(0xffffff, 0x2c3a44, 1.4);
+      scene.add(hemi);
+      const key = new THREE.DirectionalLight(0xffffff, 2.4);
+      key.position.set(5, 8, 4);
+      key.castShadow = true;
+      key.shadow.mapSize.set(2048, 2048);
+      key.shadow.camera.left = -6;
+      key.shadow.camera.right = 6;
+      key.shadow.camera.top = 6;
+      key.shadow.camera.bottom = -6;
+      scene.add(key);
+
+      const floor = new THREE.Mesh(
+        new THREE.PlaneGeometry(40, 40),
+        new THREE.MeshStandardMaterial({ color: 0x1a2026, roughness: 0.9, metalness: 0 })
+      );
+      floor.rotation.x = -Math.PI / 2;
+      floor.receiveShadow = true;
+      scene.add(floor);
+      const grid = new THREE.GridHelper(40, 40, 0x3c4a56, 0x232c33);
+      grid.position.y = 0.002;
+      scene.add(grid);
+
+      const controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.08;
+      controls.autoRotate = autoRotate;
+      controls.autoRotateSpeed = 0.8;
+
+      const gltf = await new GLTFLoader().loadAsync(modelUrl + '?t=' + Date.now());
+      const model = gltf.scene;
+      scene.add(model);
+      model.updateMatrixWorld(true);
+
+      const box = new THREE.Box3().setFromObject(model);
+      const size = new THREE.Vector3();
+      const center = new THREE.Vector3();
+      box.getSize(size);
+      box.getCenter(center);
+      model.position.sub(center);
+      model.position.y += size.y / 2;
+      model.traverse((node) => {
+        if (!node.isMesh) return;
+        node.castShadow = true;
+        node.receiveShadow = true;
+      });
+
+      const span = Math.max(size.x, size.y, size.z);
+      const distance = span * 1.9;
+      const presets = {
+        iso: [distance * 0.7, span * 0.45, distance * 0.85],
+        side: [distance, span * 0.35, 0],
+        front: [0, span * 0.35, distance],
+        rear: [0, span * 0.35, -distance],
+        top: [0, distance, 0.01],
+        high: [distance * 0.7, span * 1.1, distance * 0.7],
+        low: [distance * 0.8, span * 0.12, distance * 0.6]
+      };
+      camera.position.set(...(presets[angle] || presets.iso));
+      if (angle === 'top') {
+        camera.up.set(0, 0, -1);
+        camera.position.set(0, distance, 0);
+      }
+      controls.target.set(0, size.y * 0.45, 0);
+      controls.update();
+
+      document.querySelector('#info').textContent =
+        `${modelUrl}\n${size.x.toFixed(2)} x ${size.y.toFixed(2)} x ${size.z.toFixed(2)} m` +
+        `\nvista: ${angle}  |  ?angle=iso|side|front|rear|top|low&auto=0`;
+
+      window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+
+      renderer.setAnimationLoop(() => {
+        controls.update();
+        renderer.render(scene, camera);
+      });
+    </script>
+  </body>
+</html>

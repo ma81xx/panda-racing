@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
-    "preview": "vite preview --host 0.0.0.0"
+    "preview": "vite preview --host 0.0.0.0",
+    "models:lancer": "node tools/blueprint-modeler/build.mjs tools/blueprint-modeler/specs/lancer-evo9.json public/models/mitsubishi-lancer-evo9.glb",
+    "models:validate": "node tools/blueprint-modeler/lib/validate.js public/models/mitsubishi-lancer-evo9.glb"
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "^0.19.0",
