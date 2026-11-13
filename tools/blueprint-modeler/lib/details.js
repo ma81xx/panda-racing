@@ -85,12 +85,44 @@ export function buildParts(spec, materials) {
         6,
         false
       );
+    } else if (part.type === 'archWell') {
+      const steps = part.segments ?? 20;
+      const positions = [];
+      const indices = [];
+      for (let i = 0; i <= steps; i++) {
+        const theta = (Math.PI * i) / steps;
+        const y = part.baseY + part.lift * Math.sin(theta);
+        const z = part.z + part.radius * Math.cos(theta);
+        positions.push(part.xOuter, y, z);
+        positions.push(part.xInner, y, z);
+      }
+      for (let i = 0; i < steps; i++) {
+        const outer0 = i * 2;
+        const inner0 = i * 2 + 1;
+        const outer1 = (i + 1) * 2;
+        const inner1 = (i + 1) * 2 + 1;
+        indices.push(outer0, outer1, inner1, outer0, inner1, inner0);
+      }
+      const centerIndex = positions.length / 3;
+      positions.push(part.xInner, part.baseY + part.lift * 0.5, part.z);
+      for (let i = 0; i < steps; i++) {
+        indices.push(centerIndex, i * 2 + 3, i * 2 + 1);
+      }
+      geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      geometry.setIndex(indices);
+      geometry.computeVertexNormals();
     } else {
       throw new Error(`Tipo parte non supportato: ${part.type}`);
     }
 
     const material = materials[part.material] ?? materials.Plastic;
-    const mesh = new THREE.Mesh(geometry, material);
+    const meshMaterial = part.type === 'archWell' ? material.clone() : material;
+    if (part.type === 'archWell') {
+      meshMaterial.side = THREE.DoubleSide;
+      meshMaterial.needsUpdate = true;
+    }
+    const mesh = new THREE.Mesh(geometry, meshMaterial);
     mesh.name = part.name || part.type;
     if (part.pos) mesh.position.set(...part.pos);
     if (part.rot) {

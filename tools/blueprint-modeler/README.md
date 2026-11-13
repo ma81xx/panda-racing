@@ -53,10 +53,12 @@ node tools/blueprint-modeler/lib/validate.js public/models/nuova-auto.glb
 | `body.stations[].topHalfWidth` | semilarghezza al tetto/parte alta |
 | `body.stations[].bottomY/shoulderY/topY` | fondo, linea di cintura e tetto della sezione |
 | `body.windows.windshield/rear` | intervalli `[da, a]` in `d` per parabrezza e lunotto |
-| `body.windows.sides` | coppie `[da, a]` per i finestrini laterali |
+| `body.windows.sides` | coppie `[da, a]` per i finestrini laterali (fallback) |
+| `body.windows.sidePolygons` | poligoni `[[d, y], …]` per il vetro laterale, con montanti A/B/C corretti |
 | `body.windows.pillars` | intervalli `[da, a]` colorati come montanti neri |
 | `body.stationStep` | passo di ricampionamento delle stazioni (default 50 mm) |
-| `body.wheelArches` | `radius`, `lift`, `segments` per ritagliare i passaruota nella silhouette |
+| `body.wheelArches` | `radius`, `lift`, `segments`: foro del passaruota nella fiancata, con liner e labbro generati automaticamente |
+| `body.rocker` | `from`, `to`, `outward`, `fade`: minigonna integrata nella carrozzeria tra i passaruota |
 
 ## Materiali
 
@@ -88,6 +90,18 @@ I colori sono stringhe esadecimali. `opacity < 1` attiva la trasparenza; `side: 
 - `polyline`: `points: [[x, y, z], …]`, `tube`, `segments`, per linee di giunzione (cofano, portiere, ecc.).
 
 `pos` è il centro del volume e `rot` è in gradi (`[x, y, z]`). I dettagli sulle facce piatte (fari, griglia) vanno posizionati **fuori** dalla superficie della carrozzeria (es. `z = length/2 + 5 mm`), altrimenti restano nascosti dentro il volume chiuso. Per i pannelli orizzontali (cofano) usa `quad`/`polyline` con la quota `y` presa dal profilo delle stazioni, altrimenti possono affondare nella carrozzeria.
+
+### Pannelli laterali
+
+`details.sidePanels` disegna superfici **aderenti alla fiancata** (fari laterali, fanali, prese d'aria, indicatori). Ogni punto è in `[d, y]`; la `x` viene calcolata dal profilo della carrozzeria:
+
+```json
+{ "name": "HeadlightSide", "material": "Headlight", "side": "left",
+  "offset": 0.008,
+  "points": [[20, 545], [260, 545], [260, 680], [20, 580]] }
+```
+
+`offset` è lo scostamento verso l'esterno in metri; `side` è `left`/`right`. I punti devono essere ordinati lungo il perimetro del poligono convesso.
 
 ## Ruote e integrazione
 

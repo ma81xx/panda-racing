@@ -20,12 +20,13 @@ function ringFor(station) {
   const y1 = station.topY;
   const h = y1 - y0;
   const ys = THREE.MathUtils.clamp(station.shoulderY, y0 + 0.28 * h, y1 - 0.08 * h);
+  const rocker = station.rocker ?? 0;
 
   const right = [
     [0, y0],
-    [0.45 * w, y0],
-    [0.8 * w, y0 + 0.06 * h],
-    [0.96 * w, y0 + 0.22 * h],
+    [0.45 * w + rocker, y0],
+    [0.8 * w + rocker, y0 + 0.06 * h],
+    [0.96 * w + rocker * 0.6, y0 + 0.22 * h],
     [w, ys],
     [lerp(w, tw, 0.45), lerp(ys, y1, 0.42)],
     [lerp(w, tw, 0.85), lerp(ys, y1, 0.78)],
@@ -39,19 +40,48 @@ function ringFor(station) {
   return points;
 }
 
-function materialFor(segment, midD, windows) {
+function pointInPolygon(x, y, polygon) {
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = polygon[i][0];
+    const yi = polygon[i][1];
+    const xj = polygon[j][0];
+    const yj = polygon[j][1];
+    const intersects = yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
+    if (intersects) inside = !inside;
+  }
+  return inside;
+}
+
+function materialFor(segment, midD, centerY, windows) {
   if (segment === 0 || segment === 17) return TRIM;
   if ((segment >= 4 && segment <= 6) || (segment >= 11 && segment <= 13)) {
-    if (windows.pillars.some((range) => inRange(midD, range))) return TRIM;
-    if (windows.sides.some((range) => inRange(midD, range))) {
-      if (segment === 6 || segment === 11) return TRIM;
-      return GLASS;
+    if (windows.sidePolygons.length) {
+      if (windows.sidePolygons.some((polygon) => pointInPolygon(midD, centerY, polygon))) return GLASS;
+      if (windows.pillars.some((range) => inRange(midD, range))) return TRIM;
+      return PAINT;
     }
+    if (windows.pillars.some((range) => inRange(midD, range))) return TRIM;
+    if (windows.sides.some((range) => inRange(midD, range))) return GLASS;
   }
   if (segment >= 7 && segment <= 10) {
     if (inRange(midD, windows.windshield) || inRange(midD, windows.rear)) return GLASS;
   }
   return PAINT;
+}
+
+function inWheelArch(spec, d, y) {
+  const arches = spec.body.wheelArches;
+  if (!arches) return false;
+  const radiusX = arches.radius ?? 0.43;
+  const radiusY = arches.lift ?? 0.38;
+  const centerY = spec.wheels.radius;
+  for (const center of [spec.wheels.frontAxle, spec.wheels.rearAxle]) {
+    const dx = (d - center) / radiusX;
+    const dy = (y - centerY) / radiusY;
+    if (dx * dx + dy * dy < 1) return true;
+  }
+  return false;
 }
 
 function stationAt(key, d) {
@@ -92,6 +122,9 @@ function refineStations(spec) {
     distances.add(range[0]);
     distances.add(range[1]);
   }
+  for (const polygon of windows.sidePolygons ?? []) {
+    for (const point of polygon) distances.add(point[0]);
+  }
 
   if (arches) {
     const radius = arches.radius ?? 0.43;
@@ -108,24 +141,53 @@ function refineStations(spec) {
     .sort((a, b) => a - b)
     .map((d) => {
       const station = stationAt(key, d);
-      if (!arches) return station;
-      const radius = arches.radius ?? 0.43;
-      const lift = arches.lift ?? 0.47;
-      let bottomY = station.bottomY;
-      for (const center of [spec.wheels.frontAxle, spec.wheels.rearAxle]) {
-        const dz = station.d - center;
-        if (Math.abs(dz) >= radius) continue;
-        const archY = station.bottomY + lift * Math.sqrt(1 - (dz / radius) ** 2);
-        bottomY = Math.max(bottomY, archY);
+      const bottomY = station.bottomY;
+      let rocker = 0;
+      const rockerConfig = spec.body.rocker;
+      if (rockerConfig && d >= rockerConfig.from && d <= rockerConfig.to) {
+        const fade = rockerConfig.fade ?? 0.08;
+        const t = Math.min(
+          1,
+          Math.min((d - rockerConfig.from) / fade, (rockerConfig.to - d) / fade)
+        );
+        rocker = (rockerConfig.outward ?? 0) * Math.max(0, t);
       }
-      return { ...station, bottomY };
+      return { ...station, bottomY, rocker };
     });
+}
+
+function rockerAt(spec, d) {
+  const rockerConfig = spec.body.rocker;
+  if (!rockerConfig || d < rockerConfig.from || d > rockerConfig.to) return 0;
+  const fade = rockerConfig.fade ?? 0.08;
+  const t = Math.min(
+    1,
+    Math.min((d - rockerConfig.from) / fade, (rockerConfig.to - d) / fade)
+  );
+  return (rockerConfig.outward ?? 0) * Math.max(0, t);
+}
+
+function sideXAt(spec, d, y, side) {
+  const base = stationAt(spec.body.stations, d);
+  const ring = ringFor({ ...base, rocker: rockerAt(spec, d) });
+  for (let i = 0; i < 9; i++) {
+    const y0 = ring[i][1];
+    const y1 = ring[i + 1][1];
+    const lo = Math.min(y0, y1);
+    const hi = Math.max(y0, y1);
+    if (y < lo - 1e-6 || y > hi + 1e-6) continue;
+    const t = hi - lo < 1e-6 ? 0 : (y - y0) / (y1 - y0);
+    const x = ring[i][0] + (ring[i + 1][0] - ring[i][0]) * t;
+    return side === 'right' ? x : -x;
+  }
+  return null;
 }
 
 export function buildBody(spec, materials) {
   const stations = refineStations(spec);
   const windows = {
     sides: spec.body.windows?.sides ?? [],
+    sidePolygons: spec.body.windows?.sidePolygons ?? [],
     pillars: spec.body.windows?.pillars ?? [],
     windshield: spec.body.windows?.windshield,
     rear: spec.body.windows?.rear
@@ -170,6 +232,10 @@ export function buildBody(spec, materials) {
       const pb = point(b);
       const pc = point(c);
       const pd = point(d);
+      const centerY = (pa.y + pb.y + pc.y + pd.y) * 0.25;
+      const sideLower = segment === 1 || segment === 2 || segment === 3 ||
+        segment === 14 || segment === 15 || segment === 16;
+      if (sideLower && inWheelArch(spec, midD, centerY)) continue;
       const normal = new THREE.Vector3()
         .subVectors(pb, pa)
         .cross(new THREE.Vector3().subVectors(pc, pa))
@@ -178,7 +244,7 @@ export function buildBody(spec, materials) {
       const flip = normal.dot(pa.clone().sub(center)) < 0;
       if (flip) normal.negate();
       const order = flip ? [a, d, c, b] : [a, b, c, d];
-      const target = indices[materialFor(segment, midD, windows)];
+      const target = indices[materialFor(segment, midD, centerY, windows)];
       target.push(order[0], order[1], order[2], order[0], order[2], order[3]);
       accumulate(normal, order);
     }
@@ -236,6 +302,94 @@ export function buildBody(spec, materials) {
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     group.add(mesh);
+  }
+
+  const sidePanels = spec.details?.sidePanels ?? [];
+  if (sidePanels.length) {
+    const panelGroup = new THREE.Group();
+    panelGroup.name = 'SidePanels';
+    for (const panel of sidePanels) {
+      const side = panel.side ?? 'left';
+      const sign = side === 'right' ? 1 : -1;
+      const offset = panel.offset ?? 0.006;
+      const points = [];
+      for (const [d, y] of panel.points) {
+        const x = sideXAt(spec, d, y, side);
+        if (x == null) continue;
+        points.push(new THREE.Vector3(x + sign * offset, y, z(d)));
+      }
+      if (points.length < 3) continue;
+      const positions = points.flatMap((point) => [point.x, point.y, point.z]);
+      let indices = [];
+      for (let i = 1; i < points.length - 1; i++) indices.push(0, i, i + 1);
+      const normal = new THREE.Vector3()
+        .subVectors(points[1], points[0])
+        .cross(new THREE.Vector3().subVectors(points[2], points[0]))
+        .normalize();
+      const average = points
+        .reduce((sum, point) => sum.add(point), new THREE.Vector3())
+        .multiplyScalar(1 / points.length);
+      if (normal.dot(average.clone().sub(new THREE.Vector3(0, 0.7, 0))) < 0) {
+        indices = [];
+        for (let i = 1; i < points.length - 1; i++) indices.push(0, i + 1, i);
+      }
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      geometry.setIndex(indices);
+      geometry.computeVertexNormals();
+      const mesh = new THREE.Mesh(geometry, materials[panel.material] ?? materials.Plastic);
+      mesh.name = panel.name || 'SidePanel';
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      panelGroup.add(mesh);
+    }
+    group.add(panelGroup);
+  }
+
+  const arches = spec.body.wheelArches;
+  if (arches) {
+    const lipGroup = new THREE.Group();
+    lipGroup.name = 'ArchLips';
+    const radiusX = arches.radius ?? 0.43;
+    const radiusY = arches.lift ?? 0.38;
+    const centerY = spec.wheels.radius;
+    const sillY = 0.2;
+    const tube = 0.01;
+    const steps = 28;
+    const sinStart = Math.max(-1, Math.min(1, (sillY - centerY) / radiusY));
+    const thetaStart = Math.asin(sinStart);
+    const thetaEnd = Math.PI - thetaStart;
+
+    for (const [label, center] of [['F', spec.wheels.frontAxle], ['R', spec.wheels.rearAxle]]) {
+      for (const side of ['right', 'left']) {
+        const sign = side === 'right' ? 1 : -1;
+        const points = [];
+        for (let i = 0; i <= steps; i++) {
+          const theta = thetaStart + ((thetaEnd - thetaStart) * i) / steps;
+          const d = center + radiusX * Math.cos(theta);
+          const y = centerY + radiusY * Math.sin(theta);
+          const x = sideXAt(spec, d, y, side);
+          if (x == null) continue;
+          points.push(new THREE.Vector3(x + sign * 0.006, y, z(d)));
+        }
+        if (points.length < 2) continue;
+        const curve = new THREE.CatmullRomCurve3(points);
+        const tubeGeometry = new THREE.TubeGeometry(curve, steps * 2, tube, 6, false);
+        const lip = new THREE.Mesh(tubeGeometry, materials.Carpaint);
+        lip.name = `ArchLip${label}${side === 'right' ? 'R' : 'L'}`;
+        lip.castShadow = true;
+        lip.receiveShadow = true;
+        lipGroup.add(lip);
+        for (const point of [points[0], points[points.length - 1]]) {
+          const cap = new THREE.Mesh(new THREE.SphereGeometry(tube * 1.05, 8, 6), materials.Carpaint);
+          cap.position.copy(point);
+          cap.castShadow = true;
+          cap.receiveShadow = true;
+          lipGroup.add(cap);
+        }
+      }
+    }
+    group.add(lipGroup);
   }
 
   return group;
